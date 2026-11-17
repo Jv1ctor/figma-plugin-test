@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font: 11px/1.45 Inter, system-ui, -apple-system, sans-serif;
+    background: var(--figma-color-bg, #fff);
+    color: var(--figma-color-text, #222);
+    padding: 12px 14px;
+    display: grid;
+    gap: 6px;
+    height: 100vh;
+    align-content: start;
+  }
+  .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--figma-color-icon-danger, #f24822); }
+  .dot.on { background: var(--figma-color-icon-success, #14ae5c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--figma-color-icon-success, #14ae5c) 25%, transparent); }
+  .dot.wait { background: var(--figma-color-icon-warning, #ffcd29); }
+  .title { font-weight: 600; }
+  .muted { color: var(--figma-color-text-secondary, #777); }
+  .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .err { color: var(--figma-color-text-danger, #dc3412); }
+  .warn { color: var(--figma-color-text-warning, #b86200); }
+  .label { width: 62px; flex: none; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span id="dot" class="dot"></span>
+    <span id="conn" class="title ellipsis">Conectando…</span>
+  </div>
+  <div class="row"><span class="label muted">Último tema</span><span id="theme" class="ellipsis">—</span></div>
+  <div class="row"><span class="label muted">Aplicado</span><span id="when" class="ellipsis">—</span></div>
+  <div class="row"><span id="detail" class="ellipsis muted mono"></span></div>
+  <script>/*__UI_SCRIPT__*/</script>
+</body>
+</html>
