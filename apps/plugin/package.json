@@ -1,0 +1,19 @@
+{
+  "name": "plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsx build.ts",
+    "watch": "tsx build.ts --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@token-bridge/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.142.0",
+    "esbuild": "^0.28.2"
+  }
+}
