@@ -5,3 +5,5 @@ export * from "./resolve.ts";
 export * from "./dtcg.ts";
 export * from "./color.ts";
 export * from "./rules/index.ts";
+export * from "./describe.ts";
+export * from "./edits.ts";
