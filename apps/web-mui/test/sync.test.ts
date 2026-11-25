@@ -286,6 +286,72 @@ describe("sync", () => {
     expect(actions.buildPayload(set, ["text/a"])).toEqual({ tokens: toDtcg(set), remove: { specific: ["text/a"] }, muiModule: toMuiModule(set) });
   });
 
+  it("send with the relay down is an error, not queued, and touches nothing", async () => {
+    const { store, syncStore, actions, relay } = await setup();
+    actions.startSync(relay); // socket "closed"
+    store.replaceSet(withSpecific(store.get().set, "text/a"));
+    store.removeSpecific("text/a");
+    const res = await actions.sendToFigma({ remove: ["text/a"] });
+    expect(res).toEqual({ kind: "error", error: { code: "unknown", message: "Relay offline: nada foi enviado" } });
+    expect(relay.calls).toHaveLength(0);
+    expect(store.get().removedSpecifics).toEqual(["text/a"]);
+    expect(syncStore.get()).toMatchObject({ synced: null, sending: false });
+  });
+
+  it("auto-send also fires for edits diffSets ignores (disabledGroups)", async () => {
+    const { store, actions, relay } = await setup();
+    actions.startSync(relay);
+    actions.setAutoSend(true);
+    relay.handler = (c) => c.type === "get-tokens-snapshot"
+      ? reply("tokens-snapshot", { tokens: toDtcg(store.get().set), warnings: [] })
+      : reply("ack", { for: "upsert-tokens", tokens: toDtcg(store.get().set), warnings: [] });
+    relay.open();
+    await vi.advanceTimersByTimeAsync(0);
+    store.replaceSet({ ...store.get().set, disabledGroups: ["brand-2"] });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(relay.calls.filter((c) => c.type === "upsert-tokens")).toHaveLength(1);
+  });
+
+  it("overlapping sends: only the latest send owns synced, sending and result", async () => {
+    const { store, syncStore, actions, relay } = await setup();
+    actions.startSync(relay);
+    relay.open();
+    store.replaceSet(withSpecific(withSpecific(store.get().set, "text/a"), "text/b"));
+    store.removeSpecific("text/a");
+    store.removeSpecific("text/b");
+    const resolvers: ((e: Envelope) => void)[] = [];
+    relay.handler = () => new Promise<Envelope>((r) => { resolvers.push(r); });
+    const ackOf = (hex: string) => ({ id: "x", type: "ack", payload: { for: "upsert-tokens", warnings: [], tokens: toDtcg(setBaseValue(loadSeed(), "brand-1/600", hex)) } });
+    const a = actions.sendToFigma({ remove: ["text/a"] });
+    const b = actions.sendToFigma({ remove: ["text/b"] });
+    resolvers[1]!(ackOf("#16a34b"));
+    await b;
+    expect(syncStore.get().sending).toBe(false);
+    const fromB = syncStore.get().synced;
+    expect(store.get().removedSpecifics).toEqual(["text/a"]);
+    resolvers[0]!(ackOf("#16a34c"));
+    await a;
+    expect(syncStore.get().synced).toBe(fromB);
+    expect(store.get().removedSpecifics).toEqual([]); // A's tombstone still cleared
+    // sending stays true while only the older send is pending
+    const c = actions.sendToFigma({ remove: [] });
+    const d = actions.sendToFigma({ remove: [] });
+    resolvers[2]!(ackOf("#16a34b"));
+    await c;
+    expect(syncStore.get().sending).toBe(true);
+    resolvers[3]!(ackOf("#16a34b"));
+    await d;
+    expect(syncStore.get().sending).toBe(false);
+  });
+
+  it("drops persisted tombstones whose specific still exists in the loaded draft", async () => {
+    localStorage.setItem("vortex-builder:draft:v1", JSON.stringify(toDtcg(withSpecific(loadSeed(), "text/x"))));
+    localStorage.setItem(REMOVED_KEY, JSON.stringify(["text/x", "text/gone"]));
+    const { store } = await setup();
+    expect(store.get().set.specific["text/x"]).toBeDefined();
+    expect(store.get().removedSpecifics).toEqual(["text/gone"]);
+  });
+
   it("works with no relay (closed)", async () => {
     const { syncStore } = await setup();
     expect(syncStore.get().relay).toEqual({ socket: "closed", status: null });

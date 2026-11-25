@@ -11,6 +11,7 @@ export const SNAPSHOT_TIMEOUT_MS = 15_000;
 export const AUTO_SEND_DEBOUNCE_MS = 2_000;
 
 let port: RelayPort | null = null;
+let sendSeq = 0;
 
 export function buildPayload(set: TokenSet, remove: string[]): UpsertTokensPayload {
   return { tokens: toDtcg(set), remove: { specific: remove }, muiModule: toMuiModule(set) };
@@ -33,29 +34,32 @@ export async function fetchSnapshot(): Promise<{ set: TokenSet; warnings: string
 
 export async function sendToFigma(opts: { remove: string[]; auto?: boolean }): Promise<SyncResult> {
   const relay = port;
-  if (!relay) return record({ kind: "error", error: { code: "unknown", message: "sync não iniciado" } });
+  const seq = ++sendSeq;
+  const latest = () => seq === sendSeq;
+  const finish = (result: SyncResult): SyncResult => {
+    if (latest()) syncStore.update({ sending: false, result });
+    return result;
+  };
+  if (!relay || syncStore.get().relay.socket !== "open") {
+    return finish({ kind: "error", error: { code: "unknown", message: "Relay offline: nada foi enviado" } });
+  }
   const payload = buildPayload(store.get().set, opts.remove);
   syncStore.update({ sending: true });
   if (!pluginConnected()) {
     // O relay enfileira e só responde quando o plugin volta: não aguarda.
     relay.request("upsert-tokens", payload, SEND_TIMEOUT_MS).catch(() => {});
-    return record({ kind: "queued" });
+    return finish({ kind: "queued" });
   }
   try {
     const res = await relay.request("upsert-tokens", payload, SEND_TIMEOUT_MS);
     const ack = res.payload as TokensAckPayload;
     const synced = parseDtcg(ack.tokens);
-    store.clearTombstones(opts.remove);
-    syncStore.update({ synced });
-    return record({ kind: "ack", ack });
+    store.clearTombstones(opts.remove); // aplicado no Figma, mesmo que um envio mais novo exista
+    if (latest()) syncStore.update({ synced });
+    return finish({ kind: "ack", ack });
   } catch (e) {
-    return record(toError(e));
+    return finish(toError(e));
   }
-}
-
-function record(result: SyncResult): SyncResult {
-  syncStore.update({ sending: false, result });
-  return result;
 }
 
 export function importFromFigma(snapshot: TokenSet): void {
@@ -131,8 +135,6 @@ export function startSync(relay: RelayPort): () => void {
   const flush = () => {
     if (!pending || !ready()) return;
     pending = false;
-    const { synced } = syncStore.get();
-    if (synced && diffSets(store.get().set, synced).total === 0) return;
     void sendToFigma({ remove: [], auto: true });
   };
 

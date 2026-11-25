@@ -107,7 +107,8 @@ let state: EditorState = {
   warnings: initial.warnings,
   warningsOpen: false,
   inspect: false,
-  removedSpecifics: readRemoved(),
+  // o rascunho é salvo com debounce e a lápide não: descarta lápide de specific que ainda existe
+  removedSpecifics: readRemoved().filter((n) => !(n in initial.set.specific)),
 };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
