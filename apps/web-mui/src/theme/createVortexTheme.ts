@@ -43,6 +43,13 @@ const SHADOWS = [
   ...Array<string>(13).fill(vx("shadow-overlay")),
 ] as Theme["shadows"];
 
+/**
+ * Anel de foco Vortex com vão (spec §8). O MUI zera `outline` com uma classe (0,1,0) injetada depois do baseline,
+ * então o seletor global precisa de mais especificidade: `html :focus-visible:not(…)` = (0,2,1). O <input> dos
+ * campos fica de fora: o foco do campo é a borda (Task 10).
+ */
+const FOCUS_RING = { outline: `${vx("border-width-focus")} solid ${vx("border-focus")}`, outlineOffset: "2px" };
+
 const BASELINE = `
 @font-face {
   font-family: "Satoshi Variable";
@@ -52,7 +59,7 @@ const BASELINE = `
   font-display: swap;
 }
 body { background: ${vx("background-canvas")}; color: ${vx("text-primary")}; }
-:focus-visible { outline: ${vx("border-width-focus")} solid ${vx("border-focus")}; outline-offset: 2px; }
+html :focus-visible:not(.MuiInputBase-input) { outline: ${FOCUS_RING.outline}; outline-offset: ${FOCUS_RING.outlineOffset}; }
 .Mui-disabled { opacity: ${vx("opacity-disabled")}; }
 `;
 
@@ -78,7 +85,11 @@ export function createVortexTheme(palette: { light: VortexPaletteValues; dark: V
     },
     shadows: SHADOWS,
     components: {
-      MuiButtonBase: { defaultProps: { disableRipple: true } },
+      MuiButtonBase: {
+        defaultProps: { disableRipple: true },
+        // Foco por teclado detectado pelo MUI: cobre o SwitchBase, cujo :focus-visible nativo cai no <input> invisível.
+        styleOverrides: { root: { "&.Mui-focusVisible": FOCUS_RING } },
+      },
       MuiCssBaseline: { styleOverrides: BASELINE },
     },
   });

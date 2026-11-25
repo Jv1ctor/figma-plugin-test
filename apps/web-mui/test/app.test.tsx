@@ -5,7 +5,7 @@ import { loadSeed, muiPaletteValues, setBaseValue } from "@token-bridge/tokens";
 import { App } from "../src/App.tsx";
 import { store } from "../src/state/store.ts";
 import { createVortexTheme } from "../src/theme/createVortexTheme.ts";
-import { cssText, emotionCss } from "./helpers.ts";
+import { beats, cssText, emotionCss, emotionStyleRules, specificity } from "./helpers.ts";
 
 describe("App", () => {
   afterEach(() => {
@@ -40,6 +40,26 @@ describe("App", () => {
     expect(emotionCss()).not.toContain("#16a34a");
     act(() => vi.advanceTimersByTime(1));
     expect(emotionCss()).toContain("--mui-palette-primary-main:#16a34a");
+  });
+
+  it("o anel de foco Vortex vence o `outline: 0` do MUI (exceto no <input> dos campos)", () => {
+    render(<App />);
+    const rules = emotionStyleRules();
+    const selectorsOf = (r: CSSStyleRule) => r.selectorText.split(",").map((x) => x.trim());
+    const resets = rules.filter((r) => /MuiButtonBase-root|MuiInputBase/.test(r.selectorText) && /outline: 0(px)?;/.test(r.cssText));
+    expect(resets.length).toBeGreaterThan(0); // o Header renderiza Tab, Button e ToggleButton
+    const rings = rules.filter((r) => r.cssText.includes("solid var(--vx-border-focus)"));
+    const globalRing = rings.flatMap(selectorsOf).filter((sel) => sel.includes(":focus-visible") && !sel.includes(".css-"));
+    expect(globalRing.length).toBeGreaterThan(0);
+    for (const sel of globalRing) {
+      expect(sel).toContain(":not(.MuiInputBase-input)"); // foco de campo é a borda (Task 10)
+      for (const reset of resets.flatMap(selectorsOf)) expect(beats(specificity(sel), specificity(reset)), `${sel} vs ${reset}`).toBe(true);
+    }
+    // ButtonBase com foco por teclado (inclui SwitchBase, cujo :focus-visible nativo cai no <input> invisível)
+    const visible = rings.flatMap(selectorsOf).filter((sel) => /MuiButtonBase-root.*\.Mui-focusVisible/.test(sel));
+    expect(visible.length).toBeGreaterThan(0);
+    const buttonResets = resets.flatMap(selectorsOf).filter((sel) => sel.includes("MuiButtonBase-root"));
+    for (const sel of visible) for (const reset of buttonResets) expect(beats(specificity(sel), specificity(reset))).toBe(true);
   });
 
   it("mostra o cabeçalho e troca o modo da vitrine", () => {
