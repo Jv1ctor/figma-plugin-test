@@ -1,14 +1,20 @@
-// Autocontido: só importa @mui/material (a Task 14 embute este arquivo no export do tema MUI).
+// Só importa @mui/material e os módulos de ./ (a Task 14 embute o tema no export do MUI).
 import { createTheme, type PaletteOptions, type Theme } from "@mui/material/styles";
 import type {} from "@mui/material/themeCssVarsAugmentation"; // tipa theme.vars, colorSchemes etc.
+import { actions } from "./overrides/actions.ts";
+import { dataDisplay } from "./overrides/data-display.ts";
+import { feedback } from "./overrides/feedback.ts";
+import { inputs } from "./overrides/inputs.ts";
+import { navigation } from "./overrides/navigation.ts";
+import { selection } from "./overrides/selection.ts";
+import { surfaces } from "./overrides/surfaces.ts";
+import { textStyle, vx } from "./vx.ts";
 
 /** Mesmo formato de `MuiPaletteValues` de @token-bridge/tokens: hex resolvidos do tema atual (spec §8, Lacunas). */
 export interface VortexPaletteValues {
   primary: string; secondary: string | null; error: string; warning: string; info: string; success: string;
   textPrimary: string; textSecondary: string; backgroundDefault: string; backgroundPaper: string; divider: string;
 }
-
-const vx = (name: string): string => `var(--vx-${name})`;
 
 function toPalette(v: VortexPaletteValues): PaletteOptions {
   return {
@@ -25,18 +31,6 @@ function toPalette(v: VortexPaletteValues): PaletteOptions {
   };
 }
 
-/** Estilo de texto Vortex (`typography/<grupo>/<tamanho>/*`) em vars. */
-function textStyle(group: "display" | "heading" | "body" | "label", size: "large" | "medium" | "small") {
-  const t = (prop: string) => vx(`typography-${group}-${size}-${prop}`);
-  return {
-    fontFamily: vx(`typography-${group}-font-family`),
-    fontSize: t("font-size"),
-    lineHeight: t("line-height"),
-    fontWeight: t("font-weight"),
-    letterSpacing: t("letter-spacing"),
-  };
-}
-
 const SHADOWS = [
   "none",
   ...Array<string>(11).fill(vx("shadow-raised")),
@@ -50,6 +44,11 @@ const SHADOWS = [
  */
 const FOCUS_RING = { outline: `${vx("border-width-focus")} solid ${vx("border-focus")}`, outlineOffset: "2px" };
 
+/*
+ * Disabled (spec §8): aparência habilitada + opacity/disabled uma vez por componente. O MUI põe .Mui-disabled no
+ * root e também nas partes de dentro (input, rótulo do FormControlLabel, controle dentro dele), então a regra
+ * aninhada neutraliza o empilhamento (0,4³ → 0,4). Componentes com opacidade própria no MUI a trocam nos overrides.
+ */
 const BASELINE = `
 @font-face {
   font-family: "Satoshi Variable";
@@ -61,6 +60,7 @@ const BASELINE = `
 body { background: ${vx("background-canvas")}; color: ${vx("text-primary")}; }
 html :focus-visible:not(.MuiInputBase-input) { outline: ${FOCUS_RING.outline}; outline-offset: ${FOCUS_RING.outlineOffset}; }
 .Mui-disabled { opacity: ${vx("opacity-disabled")}; }
+.Mui-disabled .Mui-disabled { opacity: 1; }
 `;
 
 export function createVortexTheme(palette: { light: VortexPaletteValues; dark: VortexPaletteValues }): Theme {
@@ -91,6 +91,13 @@ export function createVortexTheme(palette: { light: VortexPaletteValues; dark: V
         styleOverrides: { root: { "&.Mui-focusVisible": FOCUS_RING } },
       },
       MuiCssBaseline: { styleOverrides: BASELINE },
+      ...actions,
+      ...inputs,
+      ...selection,
+      ...navigation,
+      ...dataDisplay({ accent2: palette.light.secondary !== null }),
+      ...surfaces,
+      ...feedback,
     },
   });
 }
