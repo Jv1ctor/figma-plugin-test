@@ -17,8 +17,14 @@ export interface StatusPayload {
   plugin: "connected" | "disconnected";
   /** An upsert-theme is waiting for the plugin to come back. */
   queued: boolean;
+  /** An upsert-tokens is waiting for the plugin to come back. */
+  tokensQueued: boolean;
   lastApplied?: { name: string; at: string };
+  lastTokens?: { at: string };
 }
+
+/** A W3C DTCG token document. Declared locally so protocol does not depend on @token-bridge/tokens. */
+export type DtcgDocument = Record<string, unknown>;
 
 export interface ClampedToken {
   token: Token | "radius";
@@ -39,6 +45,32 @@ export interface AckPayload {
   durationMs: number;
 }
 
+export interface UpsertTokensPayload {
+  tokens: DtcgDocument;
+  remove?: { specific: string[] };
+  muiModule?: string;
+}
+
+export interface TokensSnapshotPayload {
+  tokens: DtcgDocument;
+  warnings: string[];
+}
+
+export interface TokensAckPayload {
+  /** Which request this acknowledges. */
+  for: "upsert-tokens";
+  variables: { created: number; updated: number; unchanged: number; removed: number };
+  styles: { created: number; updated: number; unchanged: number };
+  warnings: string[];
+  /** Re-read from Figma after writing (ack.tokens), never the payload that was sent. */
+  tokens: DtcgDocument;
+  /** True when the relay delivered this from its offline queue. */
+  replayed?: boolean;
+  durationMs: number;
+}
+
+export type AnyAckPayload = AckPayload | TokensAckPayload;
+
 export interface ErrorPayload {
   code: "plugin-offline" | "timeout" | "invalid" | "mode-limit" | "figma" | "no-collection" | "unknown";
   message: string;
@@ -50,7 +82,10 @@ export type Message =
   | Envelope<"upsert-theme", Theme>
   | Envelope<"get-snapshot", undefined>
   | Envelope<"snapshot", Theme>
-  | Envelope<"ack", AckPayload>
+  | Envelope<"upsert-tokens", UpsertTokensPayload>
+  | Envelope<"get-tokens-snapshot", undefined>
+  | Envelope<"tokens-snapshot", TokensSnapshotPayload>
+  | Envelope<"ack", AnyAckPayload>
   | Envelope<"error", ErrorPayload>;
 
 export type MessageType = Message["type"];
@@ -92,5 +127,19 @@ export function validateTheme(input: unknown): string[] {
     const unknown = Object.keys(values).filter((k) => !(TOKENS as readonly string[]).includes(k));
     if (unknown.length) errors.push(`${mode}: tokens desconhecidos: ${unknown.join(", ")}`);
   }
+  return errors;
+}
+
+/** Returns a list of human-readable problems; empty means valid. */
+export function validateUpsertTokensShape(input: unknown): string[] {
+  if (!input || typeof input !== "object") return ["payload deve ser um objeto"];
+  const p = input as Partial<UpsertTokensPayload>;
+  const errors: string[] = [];
+  if (!p.tokens || typeof p.tokens !== "object" || Array.isArray(p.tokens)) errors.push("tokens: objeto DTCG obrigatório");
+  if (p.remove !== undefined) {
+    const specific = (p.remove as Partial<{ specific: unknown }> | null)?.specific;
+    if (!Array.isArray(specific) || specific.some((n) => typeof n !== "string")) errors.push("remove.specific: lista de strings");
+  }
+  if (p.muiModule !== undefined && typeof p.muiModule !== "string") errors.push("muiModule: string");
   return errors;
 }

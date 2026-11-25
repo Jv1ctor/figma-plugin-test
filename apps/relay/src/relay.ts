@@ -43,6 +43,7 @@ export function createRelay(opts: RelayOptions = {}) {
   const status = (): StatusPayload => ({
     plugin: pluginOnline() ? "connected" : "disconnected",
     queued: queuedTheme !== null,
+    tokensQueued: false,
     lastApplied,
   });
 
