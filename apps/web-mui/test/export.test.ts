@@ -24,6 +24,12 @@ describe("toMuiModule", () => {
     expect(mod).toContain('"#9246d7"');
   });
 
+  it("é autônomo: sem URL de fonte do builder e com fontUrl nulo", () => {
+    expect(mod).not.toContain("/fonts/");
+    expect(mod).toContain("createVortexTheme(vortexPalette, { fontUrl: null })");
+    expect(mod).toContain("CssBaseline");
+  });
+
   it("não lê --vx-base-*", () => {
     expect(mod).not.toContain("--vx-base-");
   });

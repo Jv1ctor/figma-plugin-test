@@ -44,6 +44,8 @@ O menu **Exportar** gera quatro arquivos, todos com os mesmos nomes de token do 
 | `vortex.tailwind.css` | Tema do Tailwind v4 (`@import "./vortex.css"` + `@theme`) |
 | `vortex.mui.ts` | Tema MUI autônomo: importa só `@mui/material` e `./vortex.css`, e exporta `theme` e `vortexPalette` |
 
+No `vortex.mui.ts`, a fonte Satoshi não vem embutida (licença): instale-a no app ou passe `{ fontUrl: "/caminho/Satoshi-Variable.woff2" }` como segundo argumento de `createVortexTheme`. Renderize `<CssBaseline />` para o `@font-face`, o `body`, o anel de foco e as regras de disabled valerem.
+
 *Restaurar padrão do laboratório* volta ao seed e apaga o rascunho salvo no navegador. A sincronização com o Figma fica para a fase 2.
 
 ## Protocolo

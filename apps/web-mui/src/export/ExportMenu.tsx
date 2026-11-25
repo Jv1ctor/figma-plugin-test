@@ -28,9 +28,11 @@ export async function importFile(file: File): Promise<void> {
     store.replaceSet(set);
     notify?.({ severity: "success", message: "Tema importado" });
   } catch (e) {
-    const message = e instanceof TokenFormatError || e instanceof SyntaxError
+    const message = e instanceof TokenFormatError
       ? e.message
-      : "Não foi possível ler o arquivo";
+      : e instanceof SyntaxError
+        ? "O arquivo não é um JSON válido."
+        : "Não foi possível ler o arquivo";
     notify?.({ severity: "error", message });
   }
 }

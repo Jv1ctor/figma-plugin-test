@@ -20,6 +20,7 @@ import { Header } from "./shell/Header.tsx";
 import { useEditor } from "./state/store.ts";
 import { createVortexTheme, type VortexPaletteValues } from "./theme/createVortexTheme.ts";
 
+const BUILDER_FONT_URL = "/fonts/Satoshi-Variable.woff2";
 const THEME_DEBOUNCE_MS = 150;
 
 const SCREENS = [
@@ -49,7 +50,7 @@ function useVortexTheme(set: TokenSet) {
     const t = setTimeout(() => setSettled(key), THEME_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [key, settled]);
-  return useMemo(() => createVortexTheme(JSON.parse(settled) as PaletteInput), [settled]);
+  return useMemo(() => createVortexTheme(JSON.parse(settled) as PaletteInput, { fontUrl: BUILDER_FONT_URL }), [settled]);
 }
 
 function ModeSync({ mode }: { mode: Mode }) {

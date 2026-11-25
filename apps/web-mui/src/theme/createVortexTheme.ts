@@ -49,10 +49,14 @@ const FOCUS_RING = { outline: `${vx("border-width-focus")} solid ${vx("border-fo
  * root e também nas partes de dentro (input, rótulo do FormControlLabel, controle dentro dele), então a regra
  * aninhada neutraliza o empilhamento (0,4³ → 0,4). Componentes com opacidade própria no MUI a trocam nos overrides.
  */
-const BASELINE = `
+function baseline(fontUrl: string | null): string {
+  const src = fontUrl === null
+    ? 'local("Satoshi Variable")'
+    : `local("Satoshi Variable"), url("${fontUrl}") format("woff2")`;
+  return `
 @font-face {
   font-family: "Satoshi Variable";
-  src: local("Satoshi Variable"), url("/fonts/Satoshi-Variable.woff2") format("woff2");
+  src: ${src};
   font-weight: 300 900;
   font-style: normal;
   font-display: swap;
@@ -62,8 +66,13 @@ html :focus-visible:not(.MuiInputBase-input) { outline: ${FOCUS_RING.outline}; o
 .Mui-disabled { opacity: ${vx("opacity-disabled")}; }
 .Mui-disabled .Mui-disabled { opacity: 1; }
 `;
+}
 
-export function createVortexTheme(palette: { light: VortexPaletteValues; dark: VortexPaletteValues }): Theme {
+/** `fontUrl`: arquivo da Satoshi (o builder passa o dele); sem ele, só a fonte instalada (export MUI, que não embute a fonte). */
+export function createVortexTheme(
+  palette: { light: VortexPaletteValues; dark: VortexPaletteValues },
+  opts: { fontUrl?: string | null } = {},
+): Theme {
   return createTheme({
     cssVariables: { colorSchemeSelector: '[data-mode="%s"]' },
     colorSchemes: {
@@ -90,7 +99,7 @@ export function createVortexTheme(palette: { light: VortexPaletteValues; dark: V
         // Foco por teclado detectado pelo MUI: cobre o SwitchBase, cujo :focus-visible nativo cai no <input> invisível.
         styleOverrides: { root: { "&.Mui-focusVisible": FOCUS_RING } },
       },
-      MuiCssBaseline: { styleOverrides: BASELINE },
+      MuiCssBaseline: { styleOverrides: baseline(opts.fontUrl ?? null) },
       ...actions,
       ...inputs,
       ...selection,
