@@ -12,6 +12,7 @@ import { SpecificTab } from "./editor/SpecificTab.tsx";
 import { WarningsDrawer } from "./editor/WarningsDrawer.tsx";
 import { ensureFontLoaded } from "./fonts.ts";
 import { RuntimeSheet } from "./runtime/sheet.ts";
+import { Charts } from "./showcase/Charts.tsx";
 import { Dashboard } from "./showcase/Dashboard.tsx";
 import { Overlays } from "./showcase/Overlays.tsx";
 import { Settings } from "./showcase/Settings.tsx";
@@ -28,6 +29,7 @@ const SCREENS = [
   { id: "cadastro", label: "Cadastro", View: Signup },
   { id: "configuracoes", label: "Configurações", View: Settings },
   { id: "overlays", label: "Overlays", View: Overlays },
+  { id: "graficos", label: "Gráficos", View: Charts },
 ] as const;
 
 type PaletteInput = { light: VortexPaletteValues; dark: VortexPaletteValues };

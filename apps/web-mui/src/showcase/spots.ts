@@ -28,6 +28,10 @@ const STATUS_NAMES = ["danger", "warning", "information", "success"];
 const ALERT_BASE = ["radius/xx-small", "space/medium", ...text("body", "small")];
 const strong = (palette: string): string[] => [`background/${palette}/strong`, `text/on-${palette}-strong`];
 
+const CATEGORICAL = [1, 2, 3, 4, 5, 6].map((n) => `data/categorical-${n}`);
+const SEQUENTIAL = [1, 2, 3, 4, 5].map((n) => `data/sequential-${n}`);
+const CHART_AXES = ["border/subtle", "border-width/default", "text/secondary", ...text("body", "small")];
+
 export const SPOTS = {
   // Painel
   "typography-display": ["text/primary", ...text("display", "large", "medium", "small")],
@@ -89,6 +93,11 @@ export const SPOTS = {
   "snackbar": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL, "background/inverse", "text/on-inverse", "radius/small", ...shadow("raised"), ...text("body", "small")],
   "tooltip": ["icon/primary", "background/action/tertiary-hover", "background/action/tertiary-pressed", "radius/full", "space/x-small", "background/inverse", "text/on-inverse", "radius/xx-small", "space/xx-small", "space/x-small"],
   "drawer": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL, "background/surface-raised", ...shadow("overlay"), "background/backdrop", "opacity/backdrop", "text/primary", ...text("heading", "medium"), ...text("body", "medium"), ...DISABLED],
+  // Gráficos
+  "chart-bar": [...CATEGORICAL, ...CHART_AXES, "background/surface-raised", ...shadow("raised"), "text/primary"],
+  "chart-line": [...CATEGORICAL.slice(0, 3), ...CHART_AXES, "background/surface-raised", ...shadow("raised"), "text/primary"],
+  "chart-heatmap": [...SEQUENTIAL, "text/secondary", ...text("body", "small")],
+  "chart-legend": [...CATEGORICAL, "text/secondary", ...text("body", "small")],
 } satisfies Record<string, string[]>;
 
 export type SpotId = keyof typeof SPOTS;

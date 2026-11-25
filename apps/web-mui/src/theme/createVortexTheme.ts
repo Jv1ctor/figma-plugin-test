@@ -2,6 +2,7 @@
 import { createTheme, type PaletteOptions, type Theme } from "@mui/material/styles";
 import type {} from "@mui/material/themeCssVarsAugmentation"; // tipa theme.vars, colorSchemes etc.
 import { actions } from "./overrides/actions.ts";
+import { chartsOverrides } from "./overrides/charts.ts";
 import { dataDisplay } from "./overrides/data-display.ts";
 import { feedback } from "./overrides/feedback.ts";
 import { inputs } from "./overrides/inputs.ts";
@@ -107,6 +108,7 @@ export function createVortexTheme(
       ...dataDisplay({ accent2: palette.light.secondary !== null }),
       ...surfaces,
       ...feedback,
+      ...chartsOverrides,
     },
   });
 }

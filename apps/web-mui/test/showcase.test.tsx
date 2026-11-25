@@ -89,7 +89,7 @@ describe("telas Configurações e Overlays", () => {
     render(<App />);
     const main = screen.getByRole("main", { name: "Vitrine" });
     const tabs = within(within(main).getByRole("tablist", { name: "Telas da vitrine" })).getAllByRole("tab").map((t) => t.textContent);
-    expect(tabs).toEqual(["Painel", "Cadastro", "Configurações", "Overlays"]);
+    expect(tabs).toEqual(["Painel", "Cadastro", "Configurações", "Overlays", "Gráficos"]);
     await user.click(within(main).getByRole("tab", { name: "Configurações" }));
     expect(within(main).getAllByRole("alert")).toHaveLength(12);
     await user.click(within(main).getByRole("tab", { name: "Overlays" }));
