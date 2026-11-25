@@ -1,9 +1,14 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   envelope, makeId, parseEnvelope, validateTheme, ROLES,
-  type AckPayload, type Envelope, type ErrorPayload, type Role, type StatusPayload, type Theme,
+  validateUpsertTokensShape,
+  type AckPayload, type AnyAckPayload, type Envelope, type ErrorPayload, type Role, type StatusPayload, type Theme,
+  type TokensAckPayload, type TokensSnapshotPayload, type UpsertTokensPayload,
 } from "@token-bridge/protocol";
+import { parseDtcg, toCss, toTailwind } from "@token-bridge/tokens";
+import { loadLast, saveLast, type LastTokens } from "./store.ts";
 import { c, consoleLogger, type Logger } from "./log.ts";
 
 export interface RelayOptions {
@@ -12,6 +17,8 @@ export interface RelayOptions {
   /** How long POST /theme and GET /snapshot wait for the plugin. */
   ackTimeoutMs?: number;
   log?: Logger;
+  /** Where the last Figma-confirmed tokens are persisted. */
+  dataDir?: string;
 }
 
 type Client = WebSocket & { role?: Role; label?: string; alive?: boolean };
@@ -21,12 +28,17 @@ type Origin =
   | { kind: "ws"; socket: Client }
   | { kind: "http"; resolve: (msg: Envelope) => void };
 
-const PLUGIN_BOUND = new Set(["upsert-theme", "get-snapshot"]);
-const PLUGIN_REPLIES = new Set(["ack", "error", "snapshot"]);
+const PLUGIN_BOUND = new Set(["upsert-theme", "get-snapshot", "upsert-tokens", "get-tokens-snapshot"]);
+const PLUGIN_REPLIES = new Set(["ack", "error", "snapshot", "tokens-snapshot"]);
 
 export function createRelay(opts: RelayOptions = {}) {
   const log = opts.log ?? consoleLogger;
   const ackTimeoutMs = opts.ackTimeoutMs ?? 5000;
+  const dataDir = opts.dataDir ?? fileURLToPath(new URL("../data/", import.meta.url));
+  let last: LastTokens | null = loadLast(dataDir, log);
+  /** muiModule is kept here (not forwarded to the plugin) until the ack arrives. */
+  const muiById = new Map<string, string>();
+  let queuedTokens: Envelope<"upsert-tokens", UpsertTokensPayload> | null = null;
 
   let plugin: Client | null = null;
   const others = new Set<Client>();
@@ -43,8 +55,9 @@ export function createRelay(opts: RelayOptions = {}) {
   const status = (): StatusPayload => ({
     plugin: pluginOnline() ? "connected" : "disconnected",
     queued: queuedTheme !== null,
-    tokensQueued: false,
+    tokensQueued: queuedTokens !== null,
     lastApplied,
+    ...(last ? { lastTokens: { at: last.at } } : {}),
   });
 
   const send = (socket: WebSocket, msg: Envelope) => {
@@ -62,7 +75,15 @@ export function createRelay(opts: RelayOptions = {}) {
       case "upsert-theme":
       case "snapshot":
         return `${c.bold(msg.type)} "${(p as unknown as Theme)?.name}"`;
+      case "upsert-tokens":
+        return `${c.bold(msg.type)} (${Object.keys((p as unknown as UpsertTokensPayload)?.tokens ?? {}).length} chaves)`;
       case "ack": {
+        if ((p as { for?: string })?.for === "upsert-tokens") {
+          const t = p as unknown as TokensAckPayload;
+          const v = t.variables, st = t.styles;
+          const warn = t.warnings?.length ? c.yellow(` · ${t.warnings.length} avisos`) : "";
+          return `${c.green("ack")} Vortex · ${v.created} criadas, ${v.updated} atualizadas, ${v.unchanged} iguais, ${v.removed} removidas · estilos ${st.created}/${st.updated}/${st.unchanged}${warn} · ${t.durationMs}ms`;
+        }
         const a = p as unknown as AckPayload;
         const clamp = a.clamped.length ? c.yellow(` · ${a.clamped.length} clamped`) : "";
         return `${c.green("ack")} "${a.theme}" · ${a.created} criadas, ${a.updated} atualizadas, ${a.unchanged} iguais${clamp} · ${a.durationMs}ms`;
@@ -92,12 +113,47 @@ export function createRelay(opts: RelayOptions = {}) {
       }
     }
 
+    let outbound = msg;
+    if (msg.type === "upsert-tokens") {
+      const pl = msg.payload as UpsertTokensPayload;
+      const errors = validateUpsertTokensShape(pl);
+      if (!errors.length) {
+        try {
+          parseDtcg(pl.tokens);
+        } catch (e) {
+          errors.push((e as Error).message);
+        }
+      }
+      if (errors.length) {
+        log(from, `${describe(msg)} ${shortId(msg.id)} ${c.red("rejeitado")}: ${errors.join("; ")}`);
+        replyError(origin, msg.id, { code: "invalid", message: errors.join("; ") });
+        return "rejected";
+      }
+      if (typeof pl.muiModule === "string") muiById.set(msg.id, pl.muiModule);
+      const { muiModule: _omit, ...rest } = pl;
+      outbound = { ...msg, payload: rest };
+    }
+
     pending.set(msg.id, { origin, type: msg.type, sentAt: Date.now() });
 
     if (pluginOnline()) {
       log(from, `${describe(msg)} ${shortId(msg.id)} → plugin`);
-      send(plugin!, msg);
+      send(plugin!, outbound);
       return "sent";
+    }
+
+    if (msg.type === "upsert-tokens") {
+      if (queuedTokens) {
+        log("relay", `fila: descartando ${shortId(queuedTokens.id)} (substituído)`);
+        const prev = pending.get(queuedTokens.id);
+        pending.delete(queuedTokens.id);
+        muiById.delete(queuedTokens.id);
+        if (prev) replyError(prev.origin, queuedTokens.id, { code: "plugin-offline", message: "substituído por tokens mais novos antes do plugin reconectar" });
+      }
+      queuedTokens = outbound as Envelope<"upsert-tokens", UpsertTokensPayload>;
+      log(from, `${describe(msg)} ${shortId(msg.id)} ${c.yellow("→ fila (plugin offline)")}`);
+      broadcastStatus();
+      return "queued";
     }
 
     if (msg.type === "upsert-theme") {
@@ -113,6 +169,7 @@ export function createRelay(opts: RelayOptions = {}) {
       return "queued";
     }
     pending.delete(msg.id);
+    muiById.delete(msg.id);
     log(from, `${describe(msg)} ${shortId(msg.id)} ${c.red("✗ plugin offline")}`);
     replyError(origin, msg.id, { code: "plugin-offline", message: "plugin do Figma não está conectado" });
     return "rejected";
@@ -123,11 +180,30 @@ export function createRelay(opts: RelayOptions = {}) {
     pending.delete(msg.id);
 
     const fromQueue = replayed.delete(msg.id);
-    if (fromQueue && msg.payload && typeof msg.payload === "object") (msg.payload as AckPayload).replayed = true;
+    if (fromQueue && msg.payload && typeof msg.payload === "object") (msg.payload as AnyAckPayload).replayed = true;
+
+    // Persist what Figma confirmed, whoever (if anyone) is still listening.
+    let persisted = false;
+    const persist = (tokens: LastTokens["tokens"], muiModule: string | undefined) => {
+      const next: LastTokens = { at: new Date().toISOString(), tokens, ...(muiModule !== undefined ? { muiModule } : {}) };
+      last = next;
+      persisted = true;
+      try {
+        saveLast(dataDir, next);
+      } catch (e) {
+        log("relay", c.red(`falha ao gravar last-tokens.json: ${(e as Error).message}`));
+      }
+    };
+    if (msg.type === "ack" && (msg.payload as { for?: string })?.for === "upsert-tokens") {
+      persist((msg.payload as TokensAckPayload).tokens, muiById.get(msg.id) ?? last?.muiModule);
+    } else if (msg.type === "tokens-snapshot") {
+      persist((msg.payload as TokensSnapshotPayload).tokens, last?.muiModule);
+    }
+    muiById.delete(msg.id);
 
     if (msg.type === "ack") {
-      const ack = msg.payload as AckPayload;
-      lastApplied = { name: ack.theme, at: new Date().toISOString() };
+      const ack = msg.payload as AnyAckPayload;
+      if (ack.for === "upsert-theme") lastApplied = { name: ack.theme, at: new Date().toISOString() };
     }
 
     if (!entry) {
@@ -143,7 +219,7 @@ export function createRelay(opts: RelayOptions = {}) {
       entry.origin.resolve(msg);
     }
 
-    if (msg.type === "ack") broadcastStatus();
+    if (msg.type === "ack" || persisted) broadcastStatus();
   };
 
   const attachPlugin = (socket: Client) => {
@@ -157,6 +233,14 @@ export function createRelay(opts: RelayOptions = {}) {
       const msg = queuedTheme;
       queuedTheme = null;
       log("relay", `reenviando tema da fila ${describe(msg)} ${shortId(msg.id)} → plugin`);
+      replayed.add(msg.id);
+      send(socket, msg);
+      broadcastStatus();
+    }
+    if (queuedTokens) {
+      const msg = queuedTokens;
+      queuedTokens = null;
+      log("relay", `reenviando tokens da fila ${describe(msg)} ${shortId(msg.id)} → plugin`);
       replayed.add(msg.id);
       send(socket, msg);
       broadcastStatus();
@@ -227,8 +311,9 @@ export function createRelay(opts: RelayOptions = {}) {
         plugin = null;
         // In-flight requests will never be answered by this plugin instance.
         for (const [id, entry] of pending) {
-          if (queuedTheme?.id === id) continue;
+          if (queuedTheme?.id === id || queuedTokens?.id === id) continue;
           pending.delete(id);
+          muiById.delete(id);
           replyError(entry.origin, id, { code: "plugin-offline", message: "plugin desconectou antes de responder" });
         }
         broadcastStatus();
@@ -334,7 +419,35 @@ export function createRelay(opts: RelayOptions = {}) {
       return json(res, msg.type === "snapshot" ? 200 : 502, msg);
     }
 
-    json(res, 404, { error: "rotas: POST /theme · GET /snapshot · GET /status · WS /" });
+    if (req.method === "GET" && url.pathname.startsWith("/tokens.")) {
+      const text = (body: string, type: string) => {
+        res.writeHead(200, { "content-type": type, "access-control-allow-origin": "*" });
+        res.end(body);
+      };
+      switch (url.pathname) {
+        case "/tokens.json":
+        case "/tokens.css":
+        case "/tokens.tailwind.css":
+        case "/tokens.mui.ts": {
+          if (!last) return json(res, 404, { error: "nenhum token confirmado pelo Figma ainda" });
+          if (url.pathname === "/tokens.json") return text(JSON.stringify(last.tokens, null, 2) + "\n", "application/json; charset=utf-8");
+          if (url.pathname === "/tokens.mui.ts") {
+            if (last.muiModule === undefined) return json(res, 404, { error: "módulo MUI não enviado" });
+            return text(last.muiModule, "text/plain; charset=utf-8");
+          }
+          try {
+            const set = parseDtcg(last.tokens);
+            return text(url.pathname === "/tokens.css" ? toCss(set) : toTailwind(set), "text/css; charset=utf-8");
+          } catch (e) {
+            return json(res, 500, { error: `tokens salvos inválidos: ${(e as Error).message}` });
+          }
+        }
+      }
+    }
+
+    json(res, 404, {
+      error: "rotas: POST /theme · GET /snapshot · GET /status · GET /tokens.json · /tokens.css · /tokens.tailwind.css · /tokens.mui.ts · WS /",
+    });
   }
 
   return {

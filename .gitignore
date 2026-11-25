@@ -35,3 +35,6 @@ Thumbs.db
 
 # Satoshi (licença ITF FFL não permite redistribuir; baixada por apps/web-mui/scripts/fetch-fonts.ts)
 apps/web-mui/public/fonts/*.woff2
+
+# Estado do relay (último DTCG confirmado pelo Figma)
+apps/relay/data/
