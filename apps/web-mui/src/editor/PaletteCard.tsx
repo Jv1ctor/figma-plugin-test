@@ -70,7 +70,14 @@ export interface PaletteCardProps {
 export function PaletteCard({ palette, group, disabled = false, onToggle }: PaletteCardProps) {
   const set = useEditor((s) => s.set);
   const warnings = useEditor((s) => s.warnings);
-  const [hex, setHex] = useState(String(set.base[`${palette}/600`]?.value ?? set.base[`${palette}/500`]?.value ?? "#000000"));
+  const source = String(set.base[`${palette}/600`]?.value ?? set.base[`${palette}/500`]?.value ?? "#000000");
+  const [hex, setHex] = useState(source);
+  const [seenSource, setSeenSource] = useState(source);
+  if (seenSource !== source) {
+    // o set mudou por fora (reset, importação, reativação): o campo volta a acompanhá-lo
+    setSeenSource(source);
+    setHex(source);
+  }
   const [error, setError] = useState<string>();
   const [editing, setEditing] = useState<{ token: string; anchor: HTMLElement }>();
 

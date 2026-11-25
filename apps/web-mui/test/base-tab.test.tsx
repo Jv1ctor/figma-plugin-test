@@ -39,6 +39,19 @@ describe("BaseTab", () => {
     expect(screen.queryByLabelText("Hex de space")).toBeNull();
   });
 
+  it("o campo de hex acompanha o set depois de reset", async () => {
+    const user = userEvent.setup();
+    render(<Providers><BaseTab /></Providers>);
+    const seedHex = String(base("brand-1/600"));
+    const input = screen.getByLabelText("Hex de brand-1") as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, "#16a34a");
+    await user.click(screen.getByRole("button", { name: "Gerar escala de brand-1" }));
+    expect(base("brand-1/600")).not.toBe(seedHex);
+    act(() => store.reset());
+    expect((screen.getByLabelText("Hex de brand-1") as HTMLInputElement).value).toBe(seedHex);
+  });
+
   it("hex inválido mostra erro e não altera o estado", async () => {
     const user = userEvent.setup();
     render(<Providers><BaseTab /></Providers>);

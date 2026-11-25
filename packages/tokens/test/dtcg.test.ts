@@ -24,6 +24,17 @@ describe("dtcg", () => {
     expect(() => parseDtcg({ hello: 1 })).toThrow(TokenFormatError);
     expect(() => parseDtcg(null)).toThrow(TokenFormatError);
   });
+  it("rejects a non-hex color value, naming the token", () => {
+    const d = JSON.parse(JSON.stringify(toDtcg(fromFigmaExport(raw))));
+    d.base.neutral["900"].$value = "#zzzzzz";
+    expect(() => parseDtcg(d)).toThrow(TokenFormatError);
+    expect(() => parseDtcg(d)).toThrow(/base\.neutral\.900/);
+  });
+  it("rejects a non-finite number value", () => {
+    const d = JSON.parse(JSON.stringify(toDtcg(fromFigmaExport(raw))));
+    d.base.opacity["40"].$value = null;
+    expect(() => parseDtcg(d)).toThrow(TokenFormatError);
+  });
   it("rejects bad alias", () => {
     const d = JSON.parse(JSON.stringify(toDtcg(fromFigmaExport(raw))));
     d.semantic.text.primary.$extensions.vortex.modes.light = "neutral.900";

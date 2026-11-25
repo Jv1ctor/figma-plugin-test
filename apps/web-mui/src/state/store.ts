@@ -40,7 +40,8 @@ function readDraft(): TokenSet | undefined {
     const raw = localStorage.getItem(DRAFT_KEY);
     return raw === null ? undefined : parseDtcg(JSON.parse(raw));
   } catch {
-    return undefined; // indisponível ou rascunho inválido: abre com o seed
+    clearDraft(); // indisponível ou rascunho inválido: abre com o seed
+    return undefined;
   }
 }
 
@@ -61,13 +62,25 @@ function clearDraft(): void {
 }
 
 const seed = loadSeed();
-const initialSet = readDraft() ?? seed;
+/** Rascunho cujos avisos não podem ser calculados (ex.: cor ilegível) não abre o app: volta ao seed. */
+function initialState(): { set: TokenSet; warnings: Warning[] } {
+  const draft = readDraft();
+  if (draft) {
+    try {
+      return { set: draft, warnings: computeWarnings(draft) };
+    } catch {
+      clearDraft();
+    }
+  }
+  return { set: seed, warnings: computeWarnings(seed) };
+}
+const initial = initialState();
 let state: EditorState = {
-  set: initialSet,
+  set: initial.set,
   seed,
   mode: "light",
   tab: "base",
-  warnings: computeWarnings(initialSet),
+  warnings: initial.warnings,
   warningsOpen: false,
 };
 const listeners = new Set<() => void>();

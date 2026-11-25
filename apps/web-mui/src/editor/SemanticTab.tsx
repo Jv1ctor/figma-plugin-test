@@ -8,7 +8,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
-import { contrastRatio, isDisabled, parsePar, resolve, tokenKey, valueLine } from "@token-bridge/tokens";
+import { contrastRatio, formatRatio, isDisabled, parsePar, resolve, tokenKey, valueLine } from "@token-bridge/tokens";
 import type { AliasToken, Mode, Resolved, TokenSet } from "@token-bridge/tokens";
 import { store, useEditor } from "../state/store.ts";
 import { RefPicker } from "./RefPicker.tsx";
@@ -43,7 +43,7 @@ function asHex(r: Resolved): string | undefined {
   return r.alpha < 1 ? `${r.hex}${Math.round(r.alpha * 255).toString(16).padStart(2, "0")}` : r.hex;
 }
 
-const fmtRatio = (n: number) => n.toFixed(1).replace(".", ",");
+const fmtRatio = (n: number) => formatRatio(n).replace(":1", "");
 
 function ratio(set: TokenSet, fg: string, bg: string, mode: Mode): number | undefined {
   const f = asHex(resolve(set, "semantic", fg, mode));
@@ -62,7 +62,7 @@ function ContrastCell({ set, token }: { set: TokenSet; token: AliasToken }) {
   );
   return (
     <Box sx={{ display: "grid", gap: "2px" }}>
-      {anyLow && <Box component="span" sx={{ color: WARN_COLOR, fontWeight: 600 }}>{`⚠ abaixo de ${fmtRatio(spec.min)}:1`}</Box>}
+      {anyLow && <Box component="span" sx={{ color: WARN_COLOR, fontWeight: 600 }}>{`⚠ abaixo de ${formatRatio(spec.min)}`}</Box>}
       {lines.map((l) => (
         <Typography key={l.p} variant="caption" component="div">
           {l.p.replace("background/", "")}: claro {cell(l.light)} · escuro {cell(l.dark)}

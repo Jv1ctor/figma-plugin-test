@@ -25,7 +25,7 @@ pnpm --filter plugin build     # gera apps/plugin/dist/{code.js,ui.html}
 
 No **Figma Desktop**: *Plugins → Development → Import plugin from manifest…* → `apps/plugin/manifest.json`, depois rode **Token Bridge** no arquivo. A pílula no topo da web fica verde ("Figma conectado").
 
-Outros comandos: `pnpm test` (31 testes), `pnpm typecheck`, `pnpm --filter plugin watch`, `pnpm examples` (regenera `examples/*.json`).
+Outros comandos: `pnpm test`, `pnpm typecheck`, `pnpm --filter plugin watch`, `pnpm examples` (regenera `examples/*.json`).
 
 ## Vortex × MUI builder
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSeed, parsePar, validate, type Warning } from "../src/index.ts";
+import { formatRatio, loadSeed, parsePar, validate, type Warning } from "../src/index.ts";
 
 const seed = loadSeed();
 const SEED_CONTRAST_BASELINE: Warning[] = [];
@@ -23,9 +23,9 @@ describe("contrast rules", () => {
     const s = structuredClone(seed); s.base["brand-1/600"].value = "#facc15";
     const w = validate(s).find((w) => w.token === "semantic:text/on-action-primary" && w.mode === "light" && w.against === "background/action/primary");
     expect(w?.rule).toBe("contrast-text");
-    expect(Number(w!.actual!.split(":")[0])).toBeLessThan(4.5);
-    expect(w!.expected).toBe("4.5:1");
-    expect(w!.message).toMatch(/^Contraste \d\.\d:1 contra background\/action\/primary \(mínimo 4\.5:1\)/);
+    expect(Number(w!.actual!.split(":")[0].replace(",", "."))).toBeLessThan(4.5);
+    expect(w!.expected).toBe("4,5:1");
+    expect(w!.message).toMatch(/^Contraste \d,\d:1 contra background\/action\/primary \(mínimo 4,5:1\)/);
   });
   it("broken ref", () => {
     const s = structuredClone(seed); s.semantic["border/subtle"].values.dark = "neutral/123";
@@ -61,7 +61,7 @@ describe("contrast rules", () => {
     const s = mutate((s) => { s.semantic["icon/danger"].description = "sem linha de par"; s.semantic["icon/danger"].values.light = "neutral/0"; });
     const w = find(s, "semantic:icon/danger", "light", "background/canvas");
     expect(w?.rule).toBe("contrast-icon");
-    expect(w!.expected).toBe("3.0:1");
+    expect(w!.expected).toBe("3,0:1");
   });
   it("contrast-control", () => {
     const s = mutate((s) => { s.semantic["border/strong"].values.light = "neutral/100"; });
@@ -74,5 +74,25 @@ describe("contrast rules", () => {
   it("contrast-data", () => {
     const s = mutate((s) => { s.semantic["data/categorical-1"].values.light = "data-1/50"; });
     expect(find(s, "semantic:data/categorical-1", "light", "background/canvas")?.rule).toBe("contrast-data");
+  });
+
+  const specificText = (light: string, par = "Par: background/canvas"): ReturnType<typeof loadSeed> => {
+    const s = structuredClone(seed);
+    s.specific["text/reading"] = {
+      name: "text/reading", type: "color", scopes: [], description: par, flex: "free",
+      values: { light: light as never, dark: "neutral/50" as never },
+    };
+    return s;
+  };
+  it("contrast rules cover specific tokens", () => {
+    const bad = validate(specificText("neutral/100")).find((w) => w.token === "specific:text/reading" && w.mode === "light");
+    expect(bad).toMatchObject({ rule: "contrast-text", against: "background/canvas" });
+    expect(validate(specificText("neutral/900")).filter((w) => w.token === "specific:text/reading" && w.rule.startsWith("contrast"))).toEqual([]);
+  });
+  it("displays contrast floored to one decimal with a comma", () => {
+    // 4.46 must not read as "4,5:1 (mínimo 4,5:1)"
+    expect(formatRatio(4.46)).toBe("4,4:1");
+    expect(formatRatio(4.5)).toBe("4,5:1");
+    expect(formatRatio(3)).toBe("3,0:1");
   });
 });

@@ -44,6 +44,14 @@ describe("store", () => {
     expect(() => vi.advanceTimersByTime(300)).not.toThrow();
   });
 
+  it("abre com o seed quando o rascunho tem uma cor inválida", async () => {
+    const bad = JSON.parse(JSON.stringify(toDtcg(loadSeed())));
+    bad.base.neutral["900"].$value = "#zzzzzz";
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(bad));
+    expect((await freshStore()).get().set).toEqual(loadSeed());
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
   it("restaura um rascunho válido", async () => {
     const edited = setBaseValue(loadSeed(), "brand-1/600", "#16a34a");
     localStorage.setItem(DRAFT_KEY, JSON.stringify(toDtcg(edited)));

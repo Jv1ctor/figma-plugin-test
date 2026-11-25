@@ -12,6 +12,7 @@ type Obj = Record<string, unknown>;
 const TOKEN_TYPES: readonly TokenType[] = ["color", "dimension", "number", "fontFamily", "fontWeight"];
 const FLEXES: readonly Flex[] = ["locked", "adjustable", "free"];
 const LAYERS: readonly Exclude<Layer, "base">[] = ["semantic", "specific"];
+const HEX_COLOR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 const OPTIONAL_GROUPS: readonly OptionalGroup[] = ["brand-2", "brand-3", "brand-4", "data"];
 
 // ---------- escrita ----------
@@ -137,6 +138,8 @@ function parseBase(name: string, leaf: Obj): BaseToken {
     value = value.value;
   }
   if (typeof value !== "string" && typeof value !== "number") fail(path, "$value inválido");
+  if (typeof value === "number" && !Number.isFinite(value)) fail(path, "$value deve ser um número finito");
+  if (type === "color" && (typeof value !== "string" || !HEX_COLOR.test(value))) fail(path, `cor inválida "${String(value)}": use o formato #rrggbb`);
   return { name, type, scopes, description, flex, value };
 }
 

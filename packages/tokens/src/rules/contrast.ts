@@ -14,24 +14,28 @@ function toHex8(c: { hex: string; alpha: number }): string {
   return c.hex + Math.round(c.alpha * 255).toString(16).padStart(2, "0");
 }
 
-const fmt = (n: number) => `${n.toFixed(1)}:1`;
+/** Razão de contraste para exibição: truncada em 1 casa (4,46 → "4,4:1"), vírgula decimal. */
+export function formatRatio(n: number): string {
+  return `${(Math.floor(n * 10 + 1e-9) / 10).toFixed(1).replace(".", ",")}:1`;
+}
+const fmt = formatRatio;
 
-function colorOf(set: TokenSet, name: string, mode: Mode): string | undefined {
-  const r = resolve(set, "semantic", name, mode);
+function colorOf(set: TokenSet, layer: Layer, name: string, mode: Mode): string | undefined {
+  const r = resolve(set, layer, name, mode);
   return r.kind === "color" ? toHex8(r) : undefined;
 }
 
 function check(
-  set: TokenSet, out: Warning[], rule: RuleId, token: string, partners: string[], min: number, what: string,
+  set: TokenSet, out: Warning[], rule: RuleId, layer: Layer, token: string, partners: string[], min: number, what: string,
 ): void {
-  if (!set.semantic[token] || isDisabled(set, "semantic", token)) return;
-  const key = tokenKey("semantic", token);
+  if (!set[layer][token] || isDisabled(set, layer, token)) return;
+  const key = tokenKey(layer, token);
   for (const mode of MODES) {
-    const fg = colorOf(set, token, mode);
+    const fg = colorOf(set, layer, token, mode);
     if (!fg) continue;
     for (const against of partners) {
       if (!set.semantic[against] || isDisabled(set, "semantic", against)) continue;
-      const bg = colorOf(set, against, mode);
+      const bg = colorOf(set, "semantic", against, mode);
       if (!bg) continue;
       const ratio = contrastRatio(fg, bg);
       if (ratio >= min) continue;
@@ -44,26 +48,29 @@ function check(
   }
 }
 
-function backgroundPartners(set: TokenSet, name: string): string[] {
+function backgroundPartners(set: TokenSet, layer: Layer, name: string): string[] {
   const known = (n: string) => n in set.semantic;
-  return parsePar(set.semantic[name]?.description ?? "", known).filter((n) => n.startsWith("background/"));
+  return parsePar(set[layer][name]?.description ?? "", known).filter((n) => n.startsWith("background/"));
 }
 
 export function contrastWarnings(set: TokenSet): Warning[] {
   const out: Warning[] = [];
-  for (const name of Object.keys(set.semantic)) {
-    if (name.startsWith("text/")) {
-      check(set, out, "contrast-text", name, backgroundPartners(set, name), 4.5, "texto");
-    } else if (name.startsWith("icon/")) {
-      let partners = backgroundPartners(set, name);
-      if (partners.length === 0) partners = backgroundPartners(set, "text/" + name.slice(5));
-      check(set, out, "contrast-icon", name, partners, 3, "ícone");
-    } else if (name === "border/strong" || name === "border/selected") {
-      check(set, out, "contrast-control", name, BG_CANVAS_SURFACES, 3, "contorno de controle");
-    } else if (name === "border/focus") {
-      check(set, out, "contrast-focus", name, BG_ALL_SURFACES, 3, "indicador de foco");
-    } else if (name.startsWith("data/categorical-")) {
-      check(set, out, "contrast-data", name, BG_CANVAS_SURFACES, 3, "série de dados");
+  for (const layer of ["semantic", "specific"] as const) {
+    for (const name of Object.keys(set[layer])) {
+      const c = (rule: RuleId, partners: string[], min: number, what: string) => check(set, out, rule, layer, name, partners, min, what);
+      if (name.startsWith("text/")) {
+        c("contrast-text", backgroundPartners(set, layer, name), 4.5, "texto");
+      } else if (name.startsWith("icon/")) {
+        let partners = backgroundPartners(set, layer, name);
+        if (partners.length === 0) partners = backgroundPartners(set, layer, "text/" + name.slice(5));
+        c("contrast-icon", partners, 3, "ícone");
+      } else if (name === "border/strong" || name === "border/selected") {
+        c("contrast-control", BG_CANVAS_SURFACES, 3, "contorno de controle");
+      } else if (name === "border/focus") {
+        c("contrast-focus", BG_ALL_SURFACES, 3, "indicador de foco");
+      } else if (name.startsWith("data/categorical-")) {
+        c("contrast-data", BG_CANVAS_SURFACES, 3, "série de dados");
+      }
     }
   }
   return out;
