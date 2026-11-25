@@ -18,6 +18,7 @@ import { Dashboard } from "./showcase/Dashboard.tsx";
 import { Overlays } from "./showcase/Overlays.tsx";
 import { Settings } from "./showcase/Settings.tsx";
 import { Signup } from "./showcase/Signup.tsx";
+import { FigmaBanner } from "./sync/FigmaBanner.tsx";
 import { Header } from "./shell/Header.tsx";
 import { useEditor } from "./state/store.ts";
 import { createVortexTheme, type VortexPaletteValues } from "./theme/createVortexTheme.ts";
@@ -99,6 +100,7 @@ export function App() {
         aria-label="Vitrine"
         sx={{ display: "grid", gap: "var(--vx-space-xx-large)", p: "var(--vx-space-x-large)", maxWidth: 1280, mx: "auto" }}
       >
+        <FigmaBanner />
         <Tabs value={screen} onChange={(_, v: typeof screen) => setScreen(v)} aria-label="Telas da vitrine" variant="scrollable" scrollButtons="auto">
           {SCREENS.map((s) => <Tab key={s.id} value={s.id} label={s.label} />)}
         </Tabs>

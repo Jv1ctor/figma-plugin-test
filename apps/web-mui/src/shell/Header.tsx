@@ -10,6 +10,10 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
 import type { Mode } from "@token-bridge/tokens";
+import { useState } from "react";
+import { FigmaStatus } from "../sync/FigmaStatus.tsx";
+import { SendDialog } from "../sync/SendDialog.tsx";
+import { SyncFeedback } from "../sync/SyncFeedback.tsx";
 import { ExportMenu } from "../export/ExportMenu.tsx";
 import { ResetButton } from "./ResetButton.tsx";
 import { store, useEditor, type Tab as EditorTab } from "../state/store.ts";
@@ -25,6 +29,7 @@ export function Header() {
   const mode = useEditor((s) => s.mode);
   const inspect = useEditor((s) => s.inspect);
   const count = useEditor((s) => s.warnings.length);
+  const [sendOpen, setSendOpen] = useState(false);
 
   return (
     <AppBar
@@ -48,6 +53,7 @@ export function Header() {
           {TABS.map((t) => <Tab key={t.value} value={t.value} label={t.label} />)}
         </Tabs>
         <Box sx={{ flex: 1 }} />
+        <FigmaStatus />
         <Button
           color="inherit"
           aria-label={`Avisos (${count})`}
@@ -81,7 +87,10 @@ export function Header() {
           <ToggleButton value="inspect">Inspecionar</ToggleButton>
         </ToggleButtonGroup>
         <ResetButton />
+        <Button variant="contained" onClick={() => setSendOpen(true)}>Enviar para o Figma</Button>
         <ExportMenu />
+        <SendDialog open={sendOpen} onClose={() => setSendOpen(false)} />
+        <SyncFeedback />
       </Toolbar>
     </AppBar>
   );

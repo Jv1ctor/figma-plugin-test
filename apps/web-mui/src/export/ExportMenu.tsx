@@ -8,6 +8,8 @@ import Snackbar from "@mui/material/Snackbar";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { TokenFormatError, parseDtcg, toCss, toDtcg, toTailwind } from "@token-bridge/tokens";
 import { store } from "../state/store.ts";
+import { fetchSnapshot } from "../sync/actions.ts";
+import { ImportFromFigma, type PendingImport } from "../sync/ImportFromFigma.tsx";
 import { downloadText } from "./download.ts";
 import { toMuiModule } from "./mui-module.ts";
 
@@ -42,10 +44,18 @@ const DOWNLOADS = [
 export function ExportMenu() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   notify = setNotice;
 
   const close = () => setAnchor(null);
+  const importFigma = () => {
+    close();
+    fetchSnapshot().then(
+      setPendingImport,
+      (e: unknown) => setNotice({ severity: "error", message: e instanceof Error ? e.message : "Não foi possível ler o Figma" }),
+    );
+  };
 
   return (
     <>
@@ -66,6 +76,7 @@ export function ExportMenu() {
         ))}
         <Divider />
         <MenuItem onClick={() => { close(); fileInput.current?.click(); }}>Importar JSON…</MenuItem>
+        <MenuItem onClick={importFigma}>Importar do Figma…</MenuItem>
       </Menu>
       <input
         ref={fileInput}
@@ -79,6 +90,7 @@ export function ExportMenu() {
           if (file) void importFile(file);
         }}
       />
+      <ImportFromFigma pending={pendingImport} onClose={() => setPendingImport(null)} />
       <Snackbar data-editor-portal="" open={notice !== null} autoHideDuration={5000} onClose={() => setNotice(null)}>
         {notice ? <Alert severity={notice.severity} onClose={() => setNotice(null)}>{notice.message}</Alert> : undefined}
       </Snackbar>
