@@ -2,7 +2,7 @@
  * Plugin UI iframe: the only place with network access. It's a dumb bridge
  * WebSocket ⇄ postMessage plus a tiny status display. No figma.* here.
  */
-import { envelope, type AckPayload, type Envelope, type ErrorPayload } from "@token-bridge/protocol/messages";
+import { envelope, type AckPayload, type TokensAckPayload, type Envelope, type ErrorPayload } from "@token-bridge/protocol/messages";
 
 const RELAY_URL = "ws://localhost:3055";
 const BACKOFF_MIN = 500;
@@ -43,8 +43,8 @@ function connect() {
     } catch {
       return;
     }
-    if (msg.type === "upsert-theme" || msg.type === "get-snapshot") {
-      if (msg.type === "upsert-theme") detail.textContent = "aplicando…";
+    if (msg.type === "upsert-theme" || msg.type === "get-snapshot" || msg.type === "upsert-tokens" || msg.type === "get-tokens-snapshot") {
+      if (msg.type === "upsert-theme" || msg.type === "upsert-tokens") detail.textContent = "aplicando…";
       parent.postMessage({ pluginMessage: msg }, "*");
     }
   };
@@ -82,7 +82,16 @@ window.onmessage = (ev: MessageEvent) => {
   const msg = ev.data?.pluginMessage as Envelope | undefined;
   if (!msg) return;
 
-  if (msg.type === "ack") {
+  if (msg.type === "ack" && (msg.payload as { for?: string }).for === "upsert-tokens") {
+    const a = msg.payload as TokensAckPayload;
+    themeEl.textContent = "Vortex";
+    whenEl.textContent = `${time()} · ${a.durationMs}ms`;
+    const v = a.variables;
+    const n = a.warnings.length;
+    detail.className = `ellipsis mono ${n ? "warn" : "muted"}`;
+    detail.textContent = `${v.created} criadas · ${v.updated} atualiz. · ${v.unchanged} iguais` + (n ? ` · ${n} avisos` : "");
+    detail.title = a.warnings.join("\n");
+  } else if (msg.type === "ack") {
     const a = msg.payload as AckPayload;
     themeEl.textContent = a.theme;
     whenEl.textContent = `${time()} · ${a.durationMs}ms`;

@@ -13,6 +13,8 @@ const main: BuildOptions = {
   bundle: true,
   format: "iife",
   target: "es2017",
+  // Keeps dist/code.js under the 150 KB budget (see test/bundle.test.ts).
+  minify: !watch,
   logLevel: "info",
 };
 
