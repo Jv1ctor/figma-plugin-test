@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
@@ -5,7 +6,16 @@ import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
 import Typography from "@mui/material/Typography";
 import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
-import type { InspectResult, InspectRow, InspectState } from "./introspect.ts";
+import type { InspectRow, InspectState } from "./introspect.ts";
+
+/** O que o cartão mostra: o componente (raiz `Mui*-root`), suas partes sem ponteiro e o elemento sob o cursor. */
+export interface CardResult {
+  component: string;
+  spot?: string;
+  componentRows: InspectRow[];
+  parts: Array<{ title: string; rows: InspectRow[] }>;
+  elementRows: InspectRow[];
+}
 
 export const CARD_ATTR = "data-inspect-card";
 const CARD_Z_INDEX = 1501;
@@ -65,16 +75,39 @@ function Row({ row, onPick }: { row: InspectRow; onPick(row: InspectRow): void }
   );
 }
 
+function StateGroups({ rows, onPick }: { rows: InspectRow[]; onPick(row: InspectRow): void }) {
+  return (
+    <>
+      {STATE_ORDER.map((state) => ({ state, rows: rows.filter((r) => r.state === state) }))
+        .filter((g) => g.rows.length > 0)
+        .map((g) => (
+          <Box key={g.state} component="section" sx={{ mt: "var(--vx-space-x-small)" }}>
+            <Typography variant="overline" component="h4">{STATE_TITLES[g.state]}</Typography>
+            <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+              {g.rows.map((r) => <Row key={`${r.property}|${r.pseudo ?? ""}|${r.token}`} row={r} onPick={onPick} />)}
+            </Box>
+          </Box>
+        ))}
+    </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box component="section" sx={{ mt: "var(--vx-space-small)" }}>
+      <Typography variant="subtitle2" component="h3">{title}</Typography>
+      {children}
+    </Box>
+  );
+}
+
 export function InspectCard({ result, anchor, pinned, onPick }: {
-  result: InspectResult;
+  result: CardResult;
   anchor: Element;
   pinned: boolean;
   onPick(row: InspectRow): void;
 }) {
-  const groups = STATE_ORDER
-    .map((state) => ({ state, rows: result.rows.filter((r) => r.state === state) }))
-    .filter((g) => g.rows.length > 0);
-
+  const empty = result.componentRows.length === 0 && result.parts.length === 0 && result.elementRows.length === 0;
   return (
     <Popper
       open
@@ -86,17 +119,25 @@ export function InspectCard({ result, anchor, pinned, onPick }: {
     >
       <Paper elevation={4} sx={{ p: "var(--vx-space-medium)", width: 340, maxHeight: "70vh", overflow: "auto" }}>
         <Typography variant="subtitle2" component="h2">{result.spot ?? result.component}</Typography>
-        <Typography variant="caption" color="text.secondary">{result.component}</Typography>
+        {result.spot && <Typography variant="caption" color="text.secondary">{result.component}</Typography>}
         {pinned && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Preso: clique de novo para soltar</Typography>}
-        {groups.length === 0 && <Typography variant="body2" sx={{ mt: "var(--vx-space-small)" }}>Nenhum token aplicado</Typography>}
-        {groups.map((g) => (
-          <Box key={g.state} component="section" sx={{ mt: "var(--vx-space-small)" }}>
-            <Typography variant="overline" component="h3">{STATE_TITLES[g.state]}</Typography>
-            <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
-              {g.rows.map((r) => <Row key={`${r.property}|${r.pseudo ?? ""}|${r.token}`} row={r} onPick={onPick} />)}
-            </Box>
-          </Box>
-        ))}
+        {empty && <Typography variant="body2" sx={{ mt: "var(--vx-space-small)" }}>Nenhum token aplicado</Typography>}
+        {result.componentRows.length > 0 && (
+          <Section title="Componente"><StateGroups rows={result.componentRows} onPick={onPick} /></Section>
+        )}
+        {result.parts.length > 0 && (
+          <Section title="Partes">
+            {result.parts.map((p, i) => (
+              <Box key={`${p.title}${i}`} sx={{ mt: "var(--vx-space-x-small)" }}>
+                <Typography variant="caption" color="text.secondary">{p.title}</Typography>
+                <StateGroups rows={p.rows} onPick={onPick} />
+              </Box>
+            ))}
+          </Section>
+        )}
+        {result.elementRows.length > 0 && (
+          <Section title="Elemento sob o cursor"><StateGroups rows={result.elementRows} onPick={onPick} /></Section>
+        )}
       </Paper>
     </Popper>
   );

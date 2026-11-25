@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { RefObject } from "react";
 import type { Mode, TokenSet } from "@token-bridge/tokens";
 import { collectRules, type CollectedRule } from "./collect.ts";
-import { CARD_ATTR, InspectCard } from "./InspectCard.tsx";
-import { introspect, type InspectResult, type InspectRow } from "./introspect.ts";
+import { CARD_ATTR, InspectCard, type CardResult } from "./InspectCard.tsx";
+import { introspect, type InspectRow } from "./introspect.ts";
 import { store, useEditor } from "../state/store.ts";
 
 /** Intervalo do hover; os testes zeram. */
@@ -11,6 +11,15 @@ export const INSPECT_THROTTLE = { ms: 50 };
 
 const PORTALS = ".MuiPopover-root, .MuiModal-root, .MuiPopper-root, .MuiSnackbar-root";
 const HIGHLIGHT_Z_INDEX = 1500;
+const EDITOR_PORTAL = "[data-editor-portal]"; // overlays do editor e do cabeçalho: ficam fora da inspeção
+const SCREEN_TABS = '[aria-label="Telas da vitrine"]'; // trocar de tela continua possível
+const MUI_ROOT_CLASS = /^Mui[A-Za-z]+-root$/;
+const LAYOUT_ROOT = /^Mui(?:Box|Stack|Grid|Container)-root$/;
+const MAX_PART_SCAN = 400;
+
+function muiRootClass(el: Element): string | undefined {
+  return (el.getAttribute("class") ?? "").split(/\s+/).find((c) => MUI_ROOT_CLASS.test(c));
+}
 
 /** Assinatura barata das folhas: muda quando entram/saem <style> ou regras. */
 function sheetSignature(doc: Document): string {
@@ -21,15 +30,35 @@ function sheetSignature(doc: Document): string {
   return sig;
 }
 
+/** Raiz do componente: o `Mui*-root` mais próximo (fora layout) dentro da vitrine/portal; SVG e sem raiz ficam com o próprio elemento. */
+function componentRoot(el: Element, boundary: Element | null): Element {
+  if (el instanceof SVGElement) return el;
+  for (let p: Element | null = el; p; p = p.parentElement) {
+    const cls = muiRootClass(p);
+    if (cls && !LAYOUT_ROOT.test(cls)) return p;
+    if (p === boundary || p === document.body) break;
+  }
+  return el;
+}
+
 /** Regras coletadas e resultados por elemento, válidos enquanto set, modo e folhas não mudam. */
 class InspectCache {
   private key = "";
   private set?: TokenSet;
   private mode?: Mode;
   private rules?: CollectedRule[];
-  private results = new Map<Element, InspectResult>();
+  private results = new Map<Element, { sig: string; result: CardResult }>();
 
-  get(el: Element, doc: Document, set: TokenSet, mode: Mode, root: Element): InspectResult {
+  clear(): void {
+    this.results.clear();
+  }
+
+  /** Raiz do componente sob `el`, a mesma que o destaque e o cabeçalho usam. */
+  rootOf(el: Element, root: Element): Element {
+    return componentRoot(el, root.contains(el) ? root : el.closest(PORTALS));
+  }
+
+  get(el: Element, doc: Document, set: TokenSet, mode: Mode, root: Element): CardResult {
     const sig = sheetSignature(doc);
     if (sig !== this.key || set !== this.set || mode !== this.mode) {
       this.key = sig;
@@ -38,9 +67,31 @@ class InspectCache {
       this.rules = collectRules(doc);
       this.results.clear();
     }
-    let hit = this.results.get(el);
-    if (!hit) this.results.set(el, (hit = introspect(el, { doc, set, mode, root, rules: this.rules })));
-    return hit;
+    const comp = this.rootOf(el, root);
+    const classes = `${el.getAttribute("class") ?? ""}|${comp.getAttribute("class") ?? ""}`;
+    const hit = this.results.get(el);
+    if (hit && hit.sig === classes) return hit.result;
+    const run = (e: Element) => introspect(e, { doc, set, mode, root, rules: this.rules });
+    const own = (e: Element): InspectRow[] => run(e).rows.filter((r) => !r.inherited);
+    const base = run(comp);
+    const parts: CardResult["parts"] = [];
+    if (!(comp instanceof SVGElement)) {
+      const win = doc.defaultView;
+      for (const d of Array.from(comp.querySelectorAll("*")).slice(0, MAX_PART_SCAN)) {
+        if (win?.getComputedStyle(d).pointerEvents !== "none") continue;
+        const rows = own(d);
+        if (rows.length) parts.push({ title: (d.getAttribute("class") ?? "").split(/\s+/).find((c) => c.startsWith("Mui")) ?? d.tagName.toLowerCase(), rows });
+      }
+    }
+    const result: CardResult = {
+      component: base.component,
+      ...(base.spot ? { spot: base.spot } : {}),
+      componentRows: base.rows,
+      parts,
+      elementRows: comp === el ? [] : own(el),
+    };
+    this.results.set(el, { sig: classes, result });
+    return result;
   }
 }
 
@@ -89,16 +140,21 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
   const release = useCallback(() => { pin(false); setTarget(null); }, [pin]);
 
   // Solta o cartão preso quando o contexto muda (set, modo, tela) ou o modo é desligado.
-  useEffect(() => { release(); }, [set, mode, screen, active, release]);
+  useEffect(() => {
+    release();
+    if (active) cache.current.clear(); // o estado dos componentes pode ter mudado em Usar
+  }, [set, mode, screen, active, release]);
 
   useEffect(() => {
     if (!active) return;
     const doc = document;
     const counts = (t: EventTarget | null): t is Element => {
       if (!(t instanceof Element)) return false;
-      if (t.closest(`[${CARD_ATTR}]`)) return false;
+      if (t.closest(`[${CARD_ATTR}], ${EDITOR_PORTAL}`)) return false;
       return !!root.current?.contains(t) || !!t.closest(PORTALS);
     };
+
+    const blocks = (t: EventTarget | null): t is Element => counts(t) && !t.closest(SCREEN_TABS);
 
     let last = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -119,7 +175,7 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
       else timer = setTimeout(handleMove, wait);
     };
     const onClick = (e: Event): void => {
-      if (!counts(e.target)) return;
+      if (!blocks(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       if (pinnedRef.current) {
@@ -131,17 +187,17 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
       }
     };
     const onPointerDown = (e: Event): void => {
-      if (!counts(e.target)) return;
+      if (!blocks(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
     };
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
-        if (counts(e.target)) e.stopPropagation();
+        if (blocks(e.target)) e.stopPropagation();
         store.update((s) => ({ ...s, inspect: false }));
         return;
       }
-      if (e.key === "Tab" || !counts(e.target)) return;
+      if (e.key === "Tab" || !blocks(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -175,11 +231,12 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
     }));
   }, []);
 
-  if (!active || !target || !result) return null;
+  if (!active || !target || !result || !root.current) return null;
+  const component = cache.current.rootOf(target, root.current);
   return (
     <>
-      <Highlight target={target} />
-      <InspectCard result={result} anchor={target} pinned={pinned} onPick={onPick} />
+      <Highlight target={component} />
+      <InspectCard result={result} anchor={component} pinned={pinned} onPick={onPick} />
     </>
   );
 }

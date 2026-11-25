@@ -36,7 +36,7 @@ function SwatchEditor({ token, anchor, onClose }: { token: string; anchor: HTMLE
     if (!err) onClose();
   };
   return (
-    <Popover open anchorEl={anchor} onClose={onClose} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
+    <Popover data-editor-portal="" open anchorEl={anchor} onClose={onClose} anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
       <Box sx={{ p: "var(--vx-space-medium)", display: "flex", gap: "var(--vx-space-small)", alignItems: "flex-start" }}>
         <input
           type="color"
@@ -121,11 +121,11 @@ export function PaletteCard({ palette, group, disabled = false, onToggle }: Pale
           const color = String(set.base[name]!.value);
           const sx = { width: 24, height: 24, flex: "none", borderRadius: "var(--vx-radius-small)", border: "1px solid var(--vx-border-subtle)", p: 0 };
           return locked ? (
-            <Tooltip key={name} title={`${name} (somente leitura)`}>
+            <Tooltip key={name} slotProps={{ popper: { "data-editor-portal": "" } as object }} title={`${name} (somente leitura)`}>
               <Box component="span" aria-label={name} role="img" sx={sx} style={{ backgroundColor: color }} />
             </Tooltip>
           ) : (
-            <Tooltip key={name} title={`${name} ${color}`}>
+            <Tooltip key={name} slotProps={{ popper: { "data-editor-portal": "" } as object }} title={`${name} ${color}`}>
               <Box
                 component="button"
                 type="button"

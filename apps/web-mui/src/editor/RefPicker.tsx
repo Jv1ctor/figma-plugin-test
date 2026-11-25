@@ -58,7 +58,7 @@ export function RefSelect({ set, value, options, label, onChange }: RefSelectPro
       renderValue={(v) => (v === "" ? "—" : row(String(v)))}
       onChange={(e) => onChange(e.target.value)}
       sx={{ minWidth: 150, fontSize: "0.8125rem" }}
-      MenuProps={{ slotProps: { paper: { style: { maxHeight: 320 } } } }}
+      MenuProps={{ ...({ "data-editor-portal": "" } as object), slotProps: { paper: { style: { maxHeight: 320 } } } }}
     >
       {shown.map((n) => <MenuItem key={n} value={n}>{row(n)}</MenuItem>)}
     </Select>

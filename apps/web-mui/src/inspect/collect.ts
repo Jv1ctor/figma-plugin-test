@@ -26,8 +26,14 @@ const STATES: Array<[Exclude<InspectState, "rest">, RegExp]> = [
 const FUNCTIONAL = /:(?:not|is|where|has)\((?:[^()]|\([^()]*\))*\)/g;
 const ATTRIBUTE = /\[[^\]]*\]/g;
 const FOCUSABLE = 'button, a[href], input, select, textarea, [contenteditable], [tabindex]:not([tabindex^="-"])';
-// Raízes de layout e texto nunca assumem .Mui-disabled / :active: o gate `mui` não as inclui.
-const MUI_ROOT = /(?:^|\s)Mui(?!(?:Box|Stack|Grid|Container|Typography|Paper|Card|Divider|Toolbar|AppBar)-)[A-Za-z]+-root(?:\s|$)/;
+// Componentes que o MUI marca com .Mui-disabled / .Mui-active: só eles assumem esses estados num seletor só de estado.
+const STATEFUL = [
+  "ButtonBase", "Button", "IconButton", "Fab", "ToggleButton", "Chip", "InputBase", "OutlinedInput", "FilledInput", "Input",
+  "Select", "NativeSelect", "FormLabel", "InputLabel", "FormControlLabel", "FormHelperText", "Switch", "SwitchBase", "Checkbox",
+  "Radio", "Slider", "Tab", "MenuItem", "ListItemButton", "Accordion", "AccordionSummary", "StepButton", "StepLabel",
+  "PaginationItem", "Autocomplete",
+];
+const MUI_ROOT = new RegExp(`(?:^|\\s)Mui(?:${STATEFUL.join("|")})-root(?:\\s|$)`);
 
 /**
  * Remove estados e pseudo-elementos do seletor; devolve o seletor para `matches`, o estado, o pseudo e, quando o

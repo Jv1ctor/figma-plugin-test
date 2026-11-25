@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../src/App.tsx";
+import { setBaseValue } from "@token-bridge/tokens";
 import { INSPECT_THROTTLE } from "../src/inspect/InspectLayer.tsx";
 import { store } from "../src/state/store.ts";
 
@@ -118,5 +119,91 @@ describe("modo Inspecionar", () => {
     expect(within(screen.getByRole("tooltip")).queryByText("Nenhum token aplicado")).toBeNull();
     act(() => store.update((s) => ({ ...s, mode: "dark" })));
     await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("o diálogo de Restaurar padrão do cabeçalho funciona em Inspecionar", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    act(() => store.update((s) => ({ ...s, set: setBaseValue(s.set, "brand-1/600", "#16a34a") })));
+    await enter(user);
+    await user.click(screen.getByRole("button", { name: "Restaurar padrão" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Restaurar" }));
+    expect(store.get().set).toBe(store.get().seed);
+    expect(store.get().inspect).toBe(true);
+  });
+
+  it("o seletor de ref do editor funciona em Inspecionar", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Semantic" }));
+    await enter(user);
+    const before = store.get().set;
+    const select = screen.getAllByRole("combobox")[0]!;
+    await user.click(select);
+    const options = screen.getAllByRole("option");
+    const other = options.find((o) => o.getAttribute("aria-selected") !== "true")!;
+    await user.click(other);
+    expect(store.get().set).not.toBe(before);
+    expect(store.get().inspect).toBe(true);
+  });
+
+  it("trocar de tela pela tablist funciona em Inspecionar e solta o cartão", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    hover(screen.getByRole("button", { name: "Criar conta" }));
+    await user.click(screen.getByRole("button", { name: "Criar conta" }));
+    expect(screen.getByRole("tooltip")).toBeTruthy();
+    await user.click(screen.getByRole("tab", { name: "Gráficos" }));
+    expect(screen.getByRole("tab", { name: "Gráficos" }).getAttribute("aria-selected")).toBe("true");
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("o cartão do Chip mostra os tokens do componente ao passar no rótulo", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user);
+    const label = Array.from(document.querySelectorAll<HTMLElement>("main .MuiChip-label")).find((e) => e.textContent === "Rascunho")!;
+    hover(label);
+    const card = await screen.findByRole("tooltip");
+    const componente = within(card).getByText("Componente").closest("section")!;
+    expect(within(componente).getAllByText("background/neutral/subtle").length).toBeGreaterThan(0);
+    expect(within(componente).getAllByText("radius/full").length).toBeGreaterThan(0);
+  });
+
+  it("o cartão do TextField mostra a borda em Partes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    hover(document.querySelector<HTMLElement>("main .MuiTextField-root input")!);
+    const card = await screen.findByRole("tooltip");
+    const partes = within(card).getByText("Partes").closest("section")!;
+    expect(within(partes).getAllByText("border/strong").length).toBeGreaterThan(0);
+  });
+
+  it("o cabeçalho não repete o componente quando não há peça", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    hover(screen.getByRole("tablist", { name: "Telas da vitrine" }));
+    const card = await screen.findByRole("tooltip");
+    expect(within(card).getAllByText("MuiTabs-root")).toHaveLength(1);
+  });
+
+  it("o cache não guarda o estado antigo entre Usar e Inspecionar", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    const box = () => document.querySelector<HTMLElement>("main .MuiCheckbox-root:not(.Mui-checked)")!;
+    const target = box();
+    hover(target);
+    const first = (await screen.findByRole("tooltip")).textContent;
+    await user.click(screen.getByRole("button", { name: "Usar" }));
+    await user.click(target.querySelector("input")!);
+    expect(target.classList.contains("Mui-checked")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Inspecionar" }));
+    hover(target);
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).not.toBe(first));
   });
 });

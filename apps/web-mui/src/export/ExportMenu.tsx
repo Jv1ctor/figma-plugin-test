@@ -58,7 +58,7 @@ export function ExportMenu() {
       >
         Exportar
       </Button>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={close}>
+      <Menu data-editor-portal="" anchorEl={anchor} open={anchor !== null} onClose={close}>
         {DOWNLOADS.map((d) => (
           <MenuItem key={d.file} onClick={() => { close(); downloadText(d.file, d.make(), d.mime); }}>
             {d.label}
@@ -79,7 +79,7 @@ export function ExportMenu() {
           if (file) void importFile(file);
         }}
       />
-      <Snackbar open={notice !== null} autoHideDuration={5000} onClose={() => setNotice(null)}>
+      <Snackbar data-editor-portal="" open={notice !== null} autoHideDuration={5000} onClose={() => setNotice(null)}>
         {notice ? <Alert severity={notice.severity} onClose={() => setNotice(null)}>{notice.message}</Alert> : undefined}
       </Snackbar>
     </>

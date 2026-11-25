@@ -55,6 +55,17 @@ describe("introspect", () => {
     expect(run(el("div", "MuiBox-root")).rows).toEqual([]);
     expect(run(el("div", "MuiButton-root")).rows.map((r) => r.state)).toEqual(["disabled"]);
   });
+  it("allowlist: Alert e Avatar não ganham linha de Desabilitado; Button ganha", () => {
+    css(".Mui-disabled{opacity:var(--vx-opacity-disabled)}");
+    expect(run(el("div", "MuiAlert-root")).rows).toEqual([]);
+    expect(run(el("div", "MuiAvatar-root")).rows).toEqual([]);
+    expect(run(el("button", "MuiButton-root")).rows.map((r) => r.state)).toEqual(["disabled"]);
+  });
+  it("hover próprio na mesma propriedade não duplica a linha re-resolvida", () => {
+    css(".w{--variant-containedBg:var(--vx-background-action-primary)} .w{background-color:var(--variant-containedBg)} .w:hover{--variant-containedBg:var(--vx-background-action-primary-hover)} .w:hover{background-color:var(--vx-background-action-secondary-hover)}");
+    const hover = run(el("button", "w")).rows.filter((r) => r.state === "hover" && r.label === "fundo");
+    expect(hover.map((r) => r.token)).toEqual(["background/action/secondary-hover"]);
+  });
   it("estados", () => {
     css(".c:hover{background-color:var(--vx-background-action-primary-hover)} .c.Mui-disabled{opacity:var(--vx-opacity-disabled)} .c.Mui-focusVisible{outline:var(--vx-border-width-focus) solid var(--vx-border-focus)}");
     const rows = run(el("button", "c")).rows;

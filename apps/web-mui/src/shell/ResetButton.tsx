@@ -16,7 +16,7 @@ export function ResetButton() {
       <Button color="inherit" variant="outlined" startIcon={<RestartAltIcon />} onClick={() => setOpen(true)}>
         Restaurar padrão
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)}>
+      <Dialog data-editor-portal="" open={open} onClose={() => setOpen(false)}>
         <DialogTitle>Restaurar o padrão do laboratório?</DialogTitle>
         <DialogContent>
           <DialogContentText>As edições atuais serão perdidas.</DialogContentText>

@@ -7,7 +7,7 @@ import type { Warning } from "@token-bridge/tokens";
 export function WarningBadge({ warnings, label }: { warnings: Warning[]; label: string }) {
   if (warnings.length === 0) return null;
   return (
-    <Tooltip title={<Box>{warnings.map((w) => <div key={w.id}>{w.message}</div>)}</Box>}>
+    <Tooltip slotProps={{ popper: { "data-editor-portal": "" } as object }} title={<Box>{warnings.map((w) => <div key={w.id}>{w.message}</div>)}</Box>}>
       <Box component="span" role="img" aria-label={`${warnings.length} aviso${warnings.length > 1 ? "s" : ""} em ${label}`} sx={{ display: "inline-flex" }}>
         <WarningAmberIcon fontSize="small" color="warning" />
       </Box>

@@ -45,7 +45,7 @@ export function WarningsDrawer() {
   const go = (w: Warning) => store.update((s) => ({ ...s, tab: tabOf(w.token), focusToken: w.token, warningsOpen: false }));
 
   return (
-    <Drawer anchor="right" open={open} onClose={close} slotProps={{ paper: { "aria-label": "Avisos", sx: { width: 420, maxWidth: "100vw" } } }}>
+    <Drawer data-editor-portal="" anchor="right" open={open} onClose={close} slotProps={{ paper: { "aria-label": "Avisos", sx: { width: 420, maxWidth: "100vw" } } }}>
       <Box sx={{ display: "flex", alignItems: "center", p: "var(--vx-space-medium)" }}>
         <Typography variant="h6" component="h2" sx={{ flex: 1 }}>Avisos ({warnings.length})</Typography>
         <IconButton aria-label="Fechar avisos" onClick={close}><CloseIcon /></IconButton>

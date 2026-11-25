@@ -95,7 +95,7 @@ export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mo
   for (const d of own.values()) if (d.prop.startsWith("--") && !d.prop.startsWith("--vx-") && d.state !== "rest") varStates.add(d.state);
   for (const d of own.values()) {
     emit(d, el, false);
-    if (d.state === "rest") for (const s of varStates) emit(d, el, false, s);
+    if (d.state === "rest") for (const s of varStates) if (!own.has(declKey(s, d.pseudo, d.prop))) emit(d, el, false, s);
   }
   for (const prop of INHERITED) {
     if (own.has(declKey("rest", undefined, prop))) continue;
