@@ -1,5 +1,5 @@
 import type { Mode, TokenSet } from "@token-bridge/tokens";
-import { collectRules, declKey, declsFor, extractVars, winners, type Decl, type InspectState, type Pseudo } from "./collect.ts";
+import { collectRules, declKey, declsFor, extractVars, winners, type CollectedRule, type Decl, type InspectState, type Pseudo } from "./collect.ts";
 import { propertyLabel } from "./labels.ts";
 import { createTokenLookup } from "./tokens.ts";
 
@@ -30,9 +30,9 @@ function componentOf(el: Element): string {
   return el.tagName.toLowerCase();
 }
 
-export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mode: Mode; root: Element }): InspectResult {
+export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mode: Mode; root: Element; rules?: CollectedRule[] }): InspectResult {
   const { doc, set, mode, root } = opts;
-  const rules = collectRules(doc);
+  const rules = opts.rules ?? collectRules(doc);
   const lookup = createTokenLookup(set, mode);
   const boundary = root.contains(el) ? root : doc.body; // portais MUI ficam fora de `root`
   const declCache = new Map<Element, Map<string, Decl>>();
@@ -71,23 +71,32 @@ export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mo
 
   const rows: InspectRow[] = [];
   const seen = new Set<string>();
-  const emit = (d: Decl, from: Element, inherited: boolean): void => {
+  const emit = (d: Decl, from: Element, inherited: boolean, state: InspectState = d.state): void => {
     const label = propertyLabel(d.prop);
     if (!label) return;
-    for (const v of vxVars(d.value, from, d.state, d.pseudo)) {
+    const base = state === d.state ? [] : vxVars(d.value, from, d.state, d.pseudo);
+    for (const v of vxVars(d.value, from, state, d.pseudo)) {
+      if (base.includes(v)) continue; // estado derivado só mostra o que a variável de variante trocou
       const ref = lookup(v);
-      const key = `${d.state}|${d.pseudo ?? ""}|${d.prop}|${ref.token}`;
+      const key = `${state}|${d.pseudo ?? ""}|${d.prop}|${ref.token}`;
       if (seen.has(key)) continue;
       seen.add(key);
       rows.push({
-        state: d.state, property: d.prop, label: d.pseudo ? `${label} (${d.pseudo === "before" ? "antes" : "depois"})` : label,
+        state, property: d.prop, label: d.pseudo ? `${label} (${d.pseudo === "before" ? "antes" : "depois"})` : label,
         token: ref.token, layer: ref.layer, value: ref.value, inherited, ...(d.pseudo ? { pseudo: d.pseudo } : {}),
       });
     }
   };
 
   const own = winnersOf(el);
-  for (const d of own.values()) emit(d, el, false);
+  // Estados que só trocam uma variável de variante (`:hover { --variant-containedBg: … }`) valem para as
+  // propriedades de repouso que a usam.
+  const varStates = new Set<InspectState>();
+  for (const d of own.values()) if (d.prop.startsWith("--") && !d.prop.startsWith("--vx-") && d.state !== "rest") varStates.add(d.state);
+  for (const d of own.values()) {
+    emit(d, el, false);
+    if (d.state === "rest") for (const s of varStates) emit(d, el, false, s);
+  }
   for (const prop of INHERITED) {
     if (own.has(declKey("rest", undefined, prop))) continue;
     for (const anc of ancestorsOf(el)) {

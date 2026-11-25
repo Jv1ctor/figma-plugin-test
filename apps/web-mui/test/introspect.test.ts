@@ -43,6 +43,18 @@ describe("introspect", () => {
     css(".b{--variant-containedBg:var(--vx-background-action-primary)} .b{background-color:var(--variant-containedBg)}");
     expect(run(el("button", "b")).rows).toContainEqual(expect.objectContaining({ label: "fundo", token: "background/action/primary" }));
   });
+  it("hover que só troca a variável de variante vira linha de hover", () => {
+    css(".v{--variant-containedBg:var(--vx-background-action-primary)} .v{background-color:var(--variant-containedBg)} .v:hover{--variant-containedBg:var(--vx-background-action-primary-hover)}");
+    const rows = run(el("button", "v")).rows;
+    expect(rows).toContainEqual(expect.objectContaining({ state: "rest", token: "background/action/primary" }));
+    expect(rows).toContainEqual(expect.objectContaining({ state: "hover", label: "fundo", token: "background/action/primary-hover" }));
+    expect(rows.filter((r) => r.state === "hover")).toHaveLength(1);
+  });
+  it("seletor só de estado não vale para raízes de layout (Box)", () => {
+    css(".Mui-disabled{opacity:var(--vx-opacity-disabled)}");
+    expect(run(el("div", "MuiBox-root")).rows).toEqual([]);
+    expect(run(el("div", "MuiButton-root")).rows.map((r) => r.state)).toEqual(["disabled"]);
+  });
   it("estados", () => {
     css(".c:hover{background-color:var(--vx-background-action-primary-hover)} .c.Mui-disabled{opacity:var(--vx-opacity-disabled)} .c.Mui-focusVisible{outline:var(--vx-border-width-focus) solid var(--vx-border-focus)}");
     const rows = run(el("button", "c")).rows;

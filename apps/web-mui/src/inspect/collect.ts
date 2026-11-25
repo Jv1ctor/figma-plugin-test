@@ -26,7 +26,8 @@ const STATES: Array<[Exclude<InspectState, "rest">, RegExp]> = [
 const FUNCTIONAL = /:(?:not|is|where|has)\((?:[^()]|\([^()]*\))*\)/g;
 const ATTRIBUTE = /\[[^\]]*\]/g;
 const FOCUSABLE = 'button, a[href], input, select, textarea, [contenteditable], [tabindex]:not([tabindex^="-"])';
-const MUI_ROOT = /(?:^|\s)Mui[A-Za-z]+-root(?:\s|$)/;
+// Raízes de layout e texto nunca assumem .Mui-disabled / :active: o gate `mui` não as inclui.
+const MUI_ROOT = /(?:^|\s)Mui(?!(?:Box|Stack|Grid|Container|Typography|Paper|Card|Divider|Toolbar|AppBar)-)[A-Za-z]+-root(?:\s|$)/;
 
 /**
  * Remove estados e pseudo-elementos do seletor; devolve o seletor para `matches`, o estado, o pseudo e, quando o

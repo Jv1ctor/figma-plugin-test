@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -11,6 +11,7 @@ import { SemanticTab } from "./editor/SemanticTab.tsx";
 import { SpecificTab } from "./editor/SpecificTab.tsx";
 import { WarningsDrawer } from "./editor/WarningsDrawer.tsx";
 import { ensureFontLoaded } from "./fonts.ts";
+import { InspectLayer } from "./inspect/InspectLayer.tsx";
 import { RuntimeSheet } from "./runtime/sheet.ts";
 import { Charts } from "./showcase/Charts.tsx";
 import { Dashboard } from "./showcase/Dashboard.tsx";
@@ -79,6 +80,7 @@ export function App() {
   const [screen, setScreen] = useState<(typeof SCREENS)[number]["id"]>("painel");
   const View = SCREENS.find((s) => s.id === screen)!.View;
   const theme = useVortexTheme(set);
+  const vitrineRef = useRef<HTMLElement>(null);
 
   return (
     <ThemeProvider theme={theme} defaultMode={mode} storageManager={null} disableTransitionOnChange>
@@ -93,6 +95,7 @@ export function App() {
       </Box>
       <Box
         component="main"
+        ref={vitrineRef}
         aria-label="Vitrine"
         sx={{ display: "grid", gap: "var(--vx-space-xx-large)", p: "var(--vx-space-x-large)", maxWidth: 1280, mx: "auto" }}
       >
@@ -101,6 +104,7 @@ export function App() {
         </Tabs>
         <View />
       </Box>
+      <InspectLayer root={vitrineRef} screen={screen} />
     </ThemeProvider>
   );
 }

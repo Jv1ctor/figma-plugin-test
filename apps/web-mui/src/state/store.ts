@@ -12,6 +12,8 @@ export interface EditorState {
   warnings: Warning[];
   warningsOpen: boolean;
   focusToken?: string;
+  /** Modo Inspecionar da vitrine; fica fora do rascunho (só `set` é persistido). */
+  inspect: boolean;
 }
 
 export const DRAFT_KEY = "vortex-builder:draft:v1";
@@ -82,6 +84,7 @@ let state: EditorState = {
   tab: "base",
   warnings: initial.warnings,
   warningsOpen: false,
+  inspect: false,
 };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;

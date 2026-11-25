@@ -23,6 +23,7 @@ const TABS: Array<{ value: EditorTab; label: string }> = [
 export function Header() {
   const tab = useEditor((s) => s.tab);
   const mode = useEditor((s) => s.mode);
+  const inspect = useEditor((s) => s.inspect);
   const count = useEditor((s) => s.warnings.length);
 
   return (
@@ -68,6 +69,16 @@ export function Header() {
         >
           <ToggleButton value="light">☀ claro</ToggleButton>
           <ToggleButton value="dark">☾ escuro</ToggleButton>
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={inspect ? "inspect" : "use"}
+          onChange={(_, value: "use" | "inspect" | null) => { if (value) store.update((s) => ({ ...s, inspect: value === "inspect" })); }}
+          aria-label="Modo de interação"
+        >
+          <ToggleButton value="use">Usar</ToggleButton>
+          <ToggleButton value="inspect">Inspecionar</ToggleButton>
         </ToggleButtonGroup>
         <ResetButton />
         <ExportMenu />
