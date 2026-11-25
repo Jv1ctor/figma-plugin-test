@@ -125,6 +125,9 @@ importers:
       '@mui/x-charts':
         specifier: 9.18.1
         version: 9.18.1(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react@19.3.1))(@mui/material@7.3.11(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@mui/system@7.3.11(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react@19.3.1))(@types/react@19.3.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@token-bridge/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@token-bridge/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens

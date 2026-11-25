@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { isDisabled, loadSeed, parseDtcg, toDtcg, validate } from "@token-bridge/tokens";
+import { isDisabled, loadSeed, parseDtcg, removeSpecific, toDtcg, validate } from "@token-bridge/tokens";
 import type { Mode, TokenSet, Warning } from "@token-bridge/tokens";
 import { FONT_CATALOG } from "../fonts.ts";
 
@@ -14,9 +14,12 @@ export interface EditorState {
   focusToken?: string;
   /** Modo Inspecionar da vitrine; fica fora do rascunho (só `set` é persistido). */
   inspect: boolean;
+  /** Specifics removidos localmente e ainda não confirmados pelo Figma (lápides, spec §6.3). */
+  removedSpecifics: string[];
 }
 
 export const DRAFT_KEY = "vortex-builder:draft:v1";
+export const REMOVED_KEY = "vortex-builder:removed-specifics:v1";
 const SAVE_DELAY_MS = 300;
 
 const FONT_WEIGHTS: Record<string, number[]> = Object.fromEntries(FONT_CATALOG.map((f) => [f.family, f.weights]));
@@ -63,6 +66,25 @@ function clearDraft(): void {
   }
 }
 
+function readRemoved(): string[] {
+  try {
+    const raw = localStorage.getItem(REMOVED_KEY);
+    const v: unknown = raw === null ? [] : JSON.parse(raw);
+    return Array.isArray(v) && v.every((n) => typeof n === "string") ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRemoved(names: string[]): void {
+  try {
+    if (names.length === 0) localStorage.removeItem(REMOVED_KEY);
+    else localStorage.setItem(REMOVED_KEY, JSON.stringify(names));
+  } catch {
+    // conveniência apenas
+  }
+}
+
 const seed = loadSeed();
 /** Rascunho cujos avisos não podem ser calculados (ex.: cor ilegível) não abre o app: volta ao seed. */
 function initialState(): { set: TokenSet; warnings: Warning[] } {
@@ -85,6 +107,7 @@ let state: EditorState = {
   warnings: initial.warnings,
   warningsOpen: false,
   inspect: false,
+  removedSpecifics: readRemoved(),
 };
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -98,6 +121,14 @@ function commit(next: EditorState): void {
   if (next === state) return;
   const setChanged = next.set !== state.set;
   state = setChanged ? { ...next, warnings: computeWarnings(next.set) } : next;
+  if (setChanged) {
+    // recriar um specific descarta a lápide dele
+    const kept = state.removedSpecifics.filter((n) => !(n in state.set.specific));
+    if (kept.length !== state.removedSpecifics.length) {
+      state = { ...state, removedSpecifics: kept };
+      writeRemoved(kept);
+    }
+  }
   for (const fn of listeners) fn();
   if (setChanged) scheduleSave();
 }
@@ -116,9 +147,27 @@ export const store = {
   replaceSet(set: TokenSet): void {
     commit({ ...state, set });
   },
+  /** Remove um specific e registra a lápide (o envio ao Figma é que apaga de fato). */
+  removeSpecific(name: string): void {
+    const removed = state.removedSpecifics.includes(name) ? state.removedSpecifics : [...state.removedSpecifics, name];
+    commit({ ...state, set: removeSpecific(state.set, name), removedSpecifics: removed });
+    writeRemoved(state.removedSpecifics);
+  },
+  /** Substitui o set pelo do Figma, preservando os grupos desligados locais; zera as lápides. */
+  importSet(set: TokenSet): void {
+    commit({ ...state, set: { ...set, disabledGroups: state.set.disabledGroups }, removedSpecifics: [] });
+    writeRemoved([]);
+  },
+  clearTombstones(names: string[]): void {
+    const kept = state.removedSpecifics.filter((n) => !names.includes(n));
+    if (kept.length === state.removedSpecifics.length) return;
+    commit({ ...state, removedSpecifics: kept });
+    writeRemoved(kept);
+  },
   /** Restaura o padrão do laboratório e apaga o rascunho. */
   reset(): void {
-    commit({ ...state, set: state.seed, focusToken: undefined });
+    commit({ ...state, set: state.seed, focusToken: undefined, removedSpecifics: [] });
+    writeRemoved([]);
     clearTimeout(saveTimer);
     clearDraft();
   },

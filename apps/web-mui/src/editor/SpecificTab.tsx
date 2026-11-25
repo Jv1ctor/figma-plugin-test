@@ -9,7 +9,7 @@ import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
-import { EditError, checkSpecificName, removeSpecific, tokenKey, upsertSpecific, valueLine } from "@token-bridge/tokens";
+import { EditError, checkSpecificName, tokenKey, upsertSpecific, valueLine } from "@token-bridge/tokens";
 import type { AliasToken, AliasValue, TokenSet, TokenType } from "@token-bridge/tokens";
 import { store, useEditor } from "../state/store.ts";
 import { RefSelect, baseOptions } from "./RefPicker.tsx";
@@ -195,7 +195,7 @@ export function SpecificTab() {
                 key={t.name} aria-label={t.name} data-token={t.name} data-highlighted={t.name === highlight ? "true" : undefined}
                 sx={t.name === highlight ? { outline: "2px solid var(--vx-border-focus)" } : undefined}
                 secondaryAction={
-                  <IconButton edge="end" size="small" aria-label={`Remover ${t.name}`} onClick={() => store.update((s) => ({ ...s, set: removeSpecific(s.set, t.name) }))}>
+                  <IconButton edge="end" size="small" aria-label={`Remover ${t.name}`} onClick={() => store.removeSpecific(t.name)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 }
