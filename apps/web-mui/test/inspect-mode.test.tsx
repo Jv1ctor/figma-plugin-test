@@ -206,4 +206,40 @@ describe("modo Inspecionar", () => {
     hover(target);
     await waitFor(() => expect(screen.getByRole("tooltip").textContent).not.toBe(first));
   });
+
+  it("o seletor de fonte da aba Base funciona em Inspecionar", async () => {
+    const user = userEvent.setup();
+    act(() => store.update((s) => ({ ...s, tab: "base" })));
+    render(<App />);
+    await enter(user);
+    const before = store.get().set;
+    await user.click(screen.getByRole("combobox", { name: "Fonte primária" }));
+    const other = screen.getAllByRole("option").find((o) => o.getAttribute("aria-selected") !== "true")!;
+    await user.click(other);
+    expect(store.get().set).not.toBe(before);
+    expect(store.get().inspect).toBe(true);
+  });
+
+  it("o ícone dentro de um IconButton resolve para o IconButton", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user);
+    hover(document.querySelector<HTMLElement>("main .MuiIconButton-root svg")!);
+    const card = await screen.findByRole("tooltip");
+    expect(within(card).queryByText("MuiSvgIcon-root")).toBeNull();
+    expect(within(card).getAllByText(/^Mui(ButtonBase|IconButton)-root$/).length).toBeGreaterThan(0);
+  });
+
+  it("Partes não lista as partes de componentes aninhados", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    const card = document.querySelector<HTMLElement>("main .MuiCard-root")!;
+    expect(card.querySelector(".MuiTextField-root")).toBeTruthy();
+    hover(card);
+    const tip = await screen.findByRole("tooltip");
+    expect(within(tip).queryByText("MuiOutlinedInput-notchedOutline")).toBeNull();
+    hover(document.querySelector<HTMLElement>("main .MuiTextField-root input")!);
+    await waitFor(() => expect(within(screen.getByRole("tooltip")).getAllByText("MuiOutlinedInput-notchedOutline").length).toBeGreaterThan(0));
+  });
 });

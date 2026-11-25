@@ -147,7 +147,7 @@ export function SpecificTab() {
         <Box sx={{ display: "grid", gap: "var(--vx-space-small)", gridTemplateColumns: "1fr 1fr" }}>
           <TextField {...field} label="Nome" value={name} onChange={(e) => { setName(e.target.value); setError(undefined); }} />
           <TextField
-            {...field} select label="Propriedade" value={property} disabled={property !== ""}
+            {...field} select label="Propriedade" slotProps={{ select: { MenuProps: { "data-editor-portal": "" } as object } }} value={property} disabled={property !== ""}
             helperText={property !== "" ? "Definida pelo nome" : undefined}
             onChange={(e) => { setName(`${e.target.value}/${name.includes("/") ? name.slice(name.indexOf("/") + 1) : ""}`); setRefs({}); setError(undefined); }}
           >

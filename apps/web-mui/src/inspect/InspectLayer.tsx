@@ -14,7 +14,7 @@ const HIGHLIGHT_Z_INDEX = 1500;
 const EDITOR_PORTAL = "[data-editor-portal]"; // overlays do editor e do cabeçalho: ficam fora da inspeção
 const SCREEN_TABS = '[aria-label="Telas da vitrine"]'; // trocar de tela continua possível
 const MUI_ROOT_CLASS = /^Mui[A-Za-z]+-root$/;
-const LAYOUT_ROOT = /^Mui(?:Box|Stack|Grid|Container)-root$/;
+const LAYOUT_ROOT = /^Mui(?:Box|Stack|Grid|Container|SvgIcon)-root$/; // glifos e layout não são "o componente"
 const MAX_PART_SCAN = 400;
 
 function muiRootClass(el: Element): string | undefined {
@@ -30,9 +30,13 @@ function sheetSignature(doc: Document): string {
   return sig;
 }
 
-/** Raiz do componente: o `Mui*-root` mais próximo (fora layout) dentro da vitrine/portal; SVG e sem raiz ficam com o próprio elemento. */
+/**
+ * Raiz do componente: o `Mui*-root` mais próximo (fora layout e glifos) dentro da vitrine/portal. Sem raiz, ou dentro de
+ * um SVG que não é ícone (gráficos), fica o próprio elemento.
+ */
 function componentRoot(el: Element, boundary: Element | null): Element {
-  if (el instanceof SVGElement) return el;
+  const svg = el.closest("svg");
+  if (svg && !svg.classList.contains("MuiSvgIcon-root")) return el;
   for (let p: Element | null = el; p; p = p.parentElement) {
     const cls = muiRootClass(p);
     if (cls && !LAYOUT_ROOT.test(cls)) return p;
@@ -41,8 +45,17 @@ function componentRoot(el: Element, boundary: Element | null): Element {
   return el;
 }
 
+/** `d` está sob outro `Mui*-root` (não layout) dentro de `comp`: a parte pertence a um componente aninhado. */
+function nestedRoot(d: Element, comp: Element): boolean {
+  for (let p = d.parentElement; p && p !== comp; p = p.parentElement) {
+    const cls = muiRootClass(p);
+    if (cls && !LAYOUT_ROOT.test(cls)) return true;
+  }
+  return false;
+}
+
 /** Regras coletadas e resultados por elemento, válidos enquanto set, modo e folhas não mudam. */
-class InspectCache {
+export class InspectCache {
   private key = "";
   private set?: TokenSet;
   private mode?: Mode;
@@ -79,6 +92,7 @@ class InspectCache {
       const win = doc.defaultView;
       for (const d of Array.from(comp.querySelectorAll("*")).slice(0, MAX_PART_SCAN)) {
         if (win?.getComputedStyle(d).pointerEvents !== "none") continue;
+        if (nestedRoot(d, comp)) continue;
         const rows = own(d);
         if (rows.length) parts.push({ title: (d.getAttribute("class") ?? "").split(/\s+/).find((c) => c.startsWith("Mui")) ?? d.tagName.toLowerCase(), rows });
       }

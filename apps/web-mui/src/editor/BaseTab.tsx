@@ -38,6 +38,7 @@ function FontSelect({ token, label }: { token: "font-family/primary" | "font-fam
     <Box sx={{ display: "flex", alignItems: "center", gap: "var(--vx-space-small)" }}>
       <TextField
         select size="small" id={id} label={label} value={value} sx={{ minWidth: 200 }}
+        slotProps={{ select: { MenuProps: { "data-editor-portal": "" } as object } }}
         onChange={(e) => {
           ensureFontLoaded(e.target.value);
           store.update((s) => ({ ...s, set: setBaseValue(s.set, token, e.target.value) }));
