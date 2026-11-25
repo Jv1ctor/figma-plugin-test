@@ -1,0 +1,36 @@
+{
+  "name": "web-mui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fonts": "tsx scripts/fetch-fonts.ts",
+    "predev": "pnpm run fonts",
+    "dev": "vite",
+    "prebuild": "pnpm run fonts",
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.11",
+    "@mui/material": "^7.3.11",
+    "@token-bridge/tokens": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.1",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.1",
+    "tsx": "^4.23.15",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

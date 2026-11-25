@@ -32,3 +32,6 @@ Thumbs.db
 *.swp
 
 .superpowers/
+
+# Satoshi (licença ITF FFL não permite redistribuir; baixada por apps/web-mui/scripts/fetch-fonts.ts)
+apps/web-mui/public/fonts/*.woff2
