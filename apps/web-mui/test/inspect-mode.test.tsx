@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../src/App.tsx";
 import { setBaseValue } from "@token-bridge/tokens";
-import { INSPECT_THROTTLE } from "../src/inspect/InspectLayer.tsx";
+import { INSPECT_THROTTLE, pickTarget } from "../src/inspect/InspectLayer.tsx";
 import { store } from "../src/state/store.ts";
 
 INSPECT_THROTTLE.ms = 0;
@@ -227,7 +227,7 @@ describe("modo Inspecionar", () => {
     hover(document.querySelector<HTMLElement>("main .MuiIconButton-root svg")!);
     const card = await screen.findByRole("tooltip");
     expect(within(card).queryByText("MuiSvgIcon-root")).toBeNull();
-    expect(within(card).getAllByText(/^Mui(ButtonBase|IconButton)-root$/).length).toBeGreaterThan(0);
+    expect(within(card).getAllByText("MuiIconButton-root").length).toBeGreaterThan(0);
   });
 
   it("Partes não lista as partes de componentes aninhados", async () => {
@@ -241,5 +241,78 @@ describe("modo Inspecionar", () => {
     expect(within(tip).queryByText("MuiOutlinedInput-notchedOutline")).toBeNull();
     hover(document.querySelector<HTMLElement>("main .MuiTextField-root input")!);
     await waitFor(() => expect(within(screen.getByRole("tooltip")).getAllByText("MuiOutlinedInput-notchedOutline").length).toBeGreaterThan(0));
+  });
+
+  it("o Card do Painel mostra a sombra shadow/raised", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user);
+    hover(document.querySelector<HTMLElement>('main [data-spot="card"] .MuiCard-root')!);
+    const card = await screen.findByRole("tooltip");
+    expect(within(card).getAllByText("shadow/raised").length).toBeGreaterThan(0);
+  });
+
+  it("o papel do Dialog mostra shadow/overlay", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Overlays" }));
+    await user.click(screen.getByRole("button", { name: "Abrir diálogo" }));
+    act(() => store.update((st) => ({ ...st, inspect: true })));
+    hover(document.querySelector<HTMLElement>(".MuiDialog-paper")!);
+    const card = await screen.findByRole("tooltip");
+    expect(within(card).getAllByText("shadow/overlay").length).toBeGreaterThan(0);
+  });
+
+  it("o TextField mostra borda e largura de foco em Partes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    hover(document.querySelector<HTMLElement>("main .MuiTextField-root input")!);
+    const card = await screen.findByRole("tooltip");
+    const partes = within(card).getByText("Partes").closest("section")!;
+    expect(within(partes).getAllByText("border/focus").length).toBeGreaterThan(0);
+    expect(within(partes).getAllByText("border-width/focus").length).toBeGreaterThan(0);
+  });
+
+  it("Espaço solto não ativa item de menu com Inspecionar ligado", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("tab", { name: "Overlays" }));
+    await user.click(screen.getByRole("button", { name: "Abrir menu" }));
+    const item = screen.getByRole("menuitem", { name: "Editar" });
+    act(() => store.update((s) => ({ ...s, inspect: true })));
+    act(() => item.focus());
+    await user.keyboard(" ");
+    expect(screen.queryByRole("menu")).toBeTruthy();
+  });
+
+  it("o cabeçalho nomeia o componente específico", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user, "Cadastro");
+    hover(screen.getByRole("button", { name: "Criar conta" }));
+    const card = await screen.findByRole("tooltip");
+    expect(within(card).getAllByText("MuiButton-root").length).toBeGreaterThan(0);
+    expect(within(card).queryByText("MuiButtonBase-root")).toBeNull();
+  });
+
+  it("clicar numa sombra leva ao primeiro token do estilo na aba Semantic", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await enter(user);
+    hover(document.querySelector<HTMLElement>('main [data-spot="card"] .MuiCard-root')!);
+    const card = await screen.findByRole("tooltip");
+    const focused: Array<string | undefined> = [];
+    const unsubscribe = store.subscribe(() => focused.push(store.get().focusToken));
+    await user.click(within(card).getAllByText("shadow/raised")[0]!.closest("button")!);
+    unsubscribe();
+    expect(focused).toContain("semantic:shadow/raised/offset-x");
+  });
+
+  it("clicar num token da Base leva à aba Base", () => {
+    const row = { state: "rest", property: "color", label: "texto", token: "brand-1/600", layer: "base", value: "#000", inherited: false } as const;
+    expect(pickTarget(row)).toEqual({ tab: "base" });
+    expect(pickTarget({ ...row, layer: "semantic", token: "shadow/overlay" })).toEqual({ tab: "semantic", focusToken: "semantic:shadow/overlay/offset-x" });
+    expect(pickTarget({ ...row, layer: "semantic", token: "text/primary" })).toEqual({ tab: "semantic", focusToken: "semantic:text/primary" });
   });
 });

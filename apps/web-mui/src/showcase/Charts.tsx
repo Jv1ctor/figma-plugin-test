@@ -21,6 +21,8 @@ const HOURS = ["8h", "12h", "16h", "20h"];
 const HEAT = [[3, 18, 9, 4], [7, 24, 15, 10], [12, 30, 21, 6], [5, 16, 27, 14], [1, 9, 12, 20]];
 
 const HEIGHT = 280;
+// x-charts grava font-size/line-height inline nos rótulos e vence o styleOverrides: o corpo pequeno entra por aqui.
+const TICK = { fontSize: "var(--vx-typography-body-small-font-size)", lineHeight: "var(--vx-typography-body-small-line-height)" };
 
 export function Charts() {
   const dataOff = useEditor((s) => s.set.disabledGroups.includes("data"));
@@ -55,7 +57,8 @@ export function Charts() {
                 height={HEIGHT}
                 colors={CATEGORICAL}
                 hideLegend
-                xAxis={[{ scaleType: "band", data: MONTHS }]}
+                xAxis={[{ scaleType: "band", data: MONTHS, tickLabelStyle: TICK }]}
+                yAxis={[{ tickLabelStyle: TICK }]}
                 series={BAR_SERIES}
                 grid={{ horizontal: true }}
               />
@@ -70,7 +73,8 @@ export function Charts() {
                 height={HEIGHT}
                 colors={CATEGORICAL.slice(0, 3)}
                 hideLegend
-                xAxis={[{ scaleType: "point", data: MONTHS }]}
+                xAxis={[{ scaleType: "point", data: MONTHS, tickLabelStyle: TICK }]}
+                yAxis={[{ tickLabelStyle: TICK }]}
                 series={LINE_SERIES}
                 grid={{ horizontal: true }}
               />

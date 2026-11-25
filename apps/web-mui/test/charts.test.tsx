@@ -31,11 +31,24 @@ describe("tela Gráficos", () => {
 
   it("consome data/* como var(), nunca base", () => {
     render(<Wrapped><Charts /></Wrapped>);
+    const bar = document.querySelector('[data-spot="chart-bar"] svg')!.outerHTML;
+    const heat = document.querySelector('[data-spot="chart-heatmap"] svg')!.outerHTML;
+    for (let n = 1; n <= 6; n++) expect(bar).toContain(`var(--vx-data-categorical-${n})`);
+    for (let n = 1; n <= 5; n++) expect(heat).toContain(`var(--vx-data-sequential-${n})`);
     const css = emotionCss() + document.body.innerHTML;
-    for (let n = 1; n <= 6; n++) expect(css).toContain(`var(--vx-data-categorical-${n})`);
-    for (let n = 1; n <= 5; n++) expect(css).toContain(`var(--vx-data-sequential-${n})`);
     expect(css).not.toMatch(/var\(--vx-base-/);
     expect(screen.getByText("80–100%")).toBeTruthy();
+  });
+
+  it("rótulos dos eixos usam o corpo pequeno dos tokens", () => {
+    render(<Wrapped><Charts /></Wrapped>);
+    const labels = Array.from(document.querySelectorAll<SVGElement>(".MuiChartsAxis-tickLabel"));
+    expect(labels.length).toBeGreaterThan(0);
+    for (const l of labels) {
+      const style = l.getAttribute("style") ?? "";
+      expect(style).toContain("var(--vx-typography-body-small-font-size)");
+      expect(style).toContain("var(--vx-typography-body-small-line-height)");
+    }
   });
 
   it("grupo data desligado mostra estado vazio e leva à Base", async () => {

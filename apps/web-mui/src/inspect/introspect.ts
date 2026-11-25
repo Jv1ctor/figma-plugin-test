@@ -24,8 +24,9 @@ const MAX_DEPTH = 8;
 function componentOf(el: Element): string {
   let cur: Element | null = el;
   for (let i = 0; cur && i <= 3; i++, cur = cur.parentElement) {
-    const hit = (cur.getAttribute("class") ?? "").split(/\s+/).find((c) => /^Mui[A-Za-z]+-root$/.test(c));
-    if (hit) return hit;
+    // O MUI ordena as classes da base para a mais específica: a última `Mui*-root` nomeia o componente.
+    const hits = (cur.getAttribute("class") ?? "").split(/\s+/).filter((c) => /^Mui[A-Za-z]+-root$/.test(c));
+    if (hits.length) return hits[hits.length - 1]!;
   }
   return el.tagName.toLowerCase();
 }
@@ -40,6 +41,12 @@ export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mo
     let w = declCache.get(e);
     if (!w) declCache.set(e, (w = winners(declsFor(e, rules))));
     return w;
+  };
+  // Propriedades personalizadas herdam no documento todo (ex.: `--mui-shadows-N` em :root).
+  const varScopeOf = (e: Element): Element[] => {
+    const out: Element[] = [];
+    for (let p: Element | null = e; p; p = p.parentElement) out.push(p);
+    return out;
   };
   const ancestorsOf = (e: Element): Element[] => {
     const out: Element[] = [];
@@ -58,7 +65,7 @@ export function introspect(el: Element, opts: { doc: Document; set: TokenSet; mo
       if (name.startsWith("--vx-")) { out.push(name); continue; }
       let resolved: string[] | undefined;
       if (depth < MAX_DEPTH) {
-        for (const e of [from, ...ancestorsOf(from)]) {
+        for (const e of varScopeOf(from)) {
           const w = winnersOf(e);
           const d = w.get(declKey(state, pseudo, name)) ?? w.get(declKey("rest", pseudo, name)) ?? w.get(declKey("rest", undefined, name));
           if (d) { resolved = vxVars(d.value, e, state, pseudo, depth + 1); break; }

@@ -141,6 +141,14 @@ function Highlight({ target }: { target: Element }) {
   );
 }
 
+/** Aba e `focusToken` de um token clicado. Estilos de sombra focam a primeira linha do grupo; a Base só abre a aba. */
+export function pickTarget(row: Pick<InspectRow, "layer" | "token">): { tab: "base" | "semantic" | "specific"; focusToken?: string } {
+  if (row.layer === "base") return { tab: "base" };
+  if (row.layer === "specific") return { tab: "specific", focusToken: `specific:${row.token}` };
+  const style = /^shadow\/[^/]+$/.test(row.token);
+  return { tab: "semantic", focusToken: `semantic:${row.token}${style ? "/offset-x" : ""}` };
+}
+
 export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | null>; screen?: string }) {
   const active = useEditor((s) => s.inspect);
   const set = useEditor((s) => s.set);
@@ -215,12 +223,19 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
       e.preventDefault();
       e.stopPropagation();
     };
+    // Espaço ativa botões, itens de menu e chips no keyup: também não pode chegar ao alvo contado.
+    const onKeyUp = (e: KeyboardEvent): void => {
+      if (e.key === "Tab" || e.key === "Escape" || !blocks(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
 
     doc.addEventListener("pointermove", onMove, true);
     doc.addEventListener("click", onClick, true);
     doc.addEventListener("pointerdown", onPointerDown, true);
     doc.addEventListener("mousedown", onPointerDown, true);
     doc.addEventListener("keydown", onKeyDown, true);
+    doc.addEventListener("keyup", onKeyUp, true);
     return () => {
       clearTimeout(timer);
       doc.removeEventListener("pointermove", onMove, true);
@@ -228,6 +243,7 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
       doc.removeEventListener("pointerdown", onPointerDown, true);
       doc.removeEventListener("mousedown", onPointerDown, true);
       doc.removeEventListener("keydown", onKeyDown, true);
+      doc.removeEventListener("keyup", onKeyUp, true);
     };
   }, [active, root, pin]);
 
@@ -237,12 +253,7 @@ export function InspectLayer({ root, screen }: { root: RefObject<HTMLElement | n
   );
 
   const onPick = useCallback((row: InspectRow) => {
-    store.update((s) => ({
-      ...s,
-      inspect: false,
-      tab: row.layer === "specific" ? "specific" : "semantic",
-      focusToken: `${row.layer}:${row.token}`,
-    }));
+    store.update((s) => ({ ...s, inspect: false, ...pickTarget(row) }));
   }, []);
 
   if (!active || !target || !result || !root.current) return null;

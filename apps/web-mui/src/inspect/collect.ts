@@ -19,7 +19,7 @@ export interface CollectedRule { selectors: RuleSelector[]; decls: Array<[string
 
 const STATES: Array<[Exclude<InspectState, "rest">, RegExp]> = [
   ["disabled", /\.Mui-disabled(?![\w-])/g],
-  ["focus", /:focus-visible(?![\w-])|:focus(?![\w-])|\.Mui-focusVisible(?![\w-])/g],
+  ["focus", /:focus-visible(?![\w-])|:focus(?![\w-])|\.Mui-focusVisible(?![\w-])|\.Mui-focused(?![\w-])/g],
   ["active", /:active(?![\w-])|\.Mui-active(?![\w-])/g],
   ["hover", /:hover(?![\w-])/g],
 ];
@@ -113,7 +113,7 @@ function bodyOf(cssText: string): string {
 
 function mediaMatches(doc: Document, text: string): boolean {
   const mm = doc.defaultView?.matchMedia;
-  if (typeof mm !== "function") return true;
+  if (typeof mm !== "function") return !/\bprint\b/.test(text);
   try { return mm.call(doc.defaultView, text).matches; } catch { return true; }
 }
 
