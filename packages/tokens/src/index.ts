@@ -3,3 +3,4 @@ export * from "./raw.ts";
 export * from "./groups.ts";
 export * from "./resolve.ts";
 export * from "./dtcg.ts";
+export * from "./color.ts";
