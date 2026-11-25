@@ -14,7 +14,7 @@ beforeEach(() => install());
 const seed = loadSeed();
 /** What a fresh write stores: payload description with its Valor line made consistent. */
 const consistent = (set: typeof seed) => {
-  const out: any = { ...set, textStyles: [], shadowStyles: [] };
+  const out: any = { ...set };
   for (const layer of ["base", "semantic", "specific"] as const) {
     out[layer] = Object.fromEntries(Object.entries(set[layer]).map(([n, t]: [string, any]) =>
       [n, { ...t, description: withValueLine(t.description, valueLine(set, layer, n)) }]));

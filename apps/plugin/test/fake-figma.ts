@@ -2,9 +2,12 @@
 let nextId = 1;
 const id = (p: string) => `${p}:${nextId++}`;
 
-export function createFakeFigma(opts: { maxModes?: number } = {}) {
+export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string[] } = {}) {
   const collections: any[] = [];
   const variables: any[] = [];
+  const textStyles: any[] = [];
+  const effectStyles: any[] = [];
+  const loaded = new Set<string>();
   const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0, removeVariable: 0 };
 
   const makeCollection = (name: string) => {
@@ -30,7 +33,40 @@ export function createFakeFigma(opts: { maxModes?: number } = {}) {
   };
 
   const figma = {
+    async getLocalTextStylesAsync() { return [...textStyles]; },
+    async getLocalEffectStylesAsync() { return [...effectStyles]; },
+    async loadFontAsync(f: { family: string; style: string }) {
+      if (opts.missingFonts?.includes(f.family)) throw new Error(`The font "${f.family} ${f.style}" could not be loaded`);
+      loaded.add(`${f.family}/${f.style}`);
+    },
+    createTextStyle() {
+      let fontName = { family: "Inter", style: "Regular" };
+      const st = {
+        id: id("S"), name: "", description: "", boundVariables: {} as Record<string, unknown>,
+        get fontName() { return fontName; },
+        set fontName(f: { family: string; style: string }) {
+          if (!loaded.has(`${f.family}/${f.style}`)) throw new Error("Cannot write to node with unloaded font");
+          fontName = { ...f };
+        },
+        setBoundVariable(field: string, v: any) { st.boundVariables[field] = { type: "VARIABLE_ALIAS", id: v.id }; },
+      };
+      textStyles.push(st);
+      return st;
+    },
+    createEffectStyle() {
+      let effects: any[] = [];
+      const st = {
+        id: id("S"), name: "", description: "",
+        get effects() { return structuredClone(effects); },
+        set effects(e: any[]) { effects = structuredClone(e); },
+      };
+      effectStyles.push(st);
+      return st;
+    },
     variables: {
+      setBoundVariableForEffect(effect: any, field: string, v: any) {
+        return { ...structuredClone(effect), boundVariables: { ...(effect.boundVariables ?? {}), [field]: { type: "VARIABLE_ALIAS", id: v.id } } };
+      },
       async getLocalVariableCollectionsAsync() { return [...collections]; },
       async getLocalVariablesAsync() { return [...variables]; },
       async getVariableByIdAsync(vid: string) { return variables.find((v) => v.id === vid) ?? null; },
@@ -70,5 +106,5 @@ export function createFakeFigma(opts: { maxModes?: number } = {}) {
     },
   };
 
-  return { figma, collections, variables, calls };
+  return { figma, collections, variables, calls, textStyles, effectStyles };
 }

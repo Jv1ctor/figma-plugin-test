@@ -7,6 +7,7 @@ import {
   type Layer, type RawFigmaExport, type RawValue, type RawVariable, type TokenSet,
 } from "@token-bridge/tokens/figma";
 import { BridgeError } from "./variables.ts";
+import { readStyles, upsertStyles } from "./vortex-styles.ts";
 
 export interface Counts { created: number; updated: number; unchanged: number }
 export interface VortexWriteResult { variables: Counts & { removed: number }; styles: Counts; warnings: string[] }
@@ -233,8 +234,8 @@ export async function upsertVortex(set: TokenSet, remove: string[]): Promise<Vor
     counts.removed++;
   }
 
-  // Task 4: styles plug in here, using ctx.
-  return { variables: counts, styles: { created: 0, updated: 0, unchanged: 0 }, warnings: capWarnings(warnings) };
+  const styles = await upsertStyles(ctx, exported);
+  return { variables: counts, styles, warnings: capWarnings(warnings) };
 }
 
 /** id → name for the variables of one collection (reused by style reading). */
@@ -264,6 +265,10 @@ export async function readVortex(): Promise<{ raw: RawFigmaExport; warnings: str
 
   const all = await figma.variables.getLocalVariablesAsync();
   const baseNames = await idNameMap(found.base);
+  const allNames = new Map<string, string>();
+  for (const v of all) {
+    if (LAYERS.some((l) => found[l]?.id === v.variableCollectionId)) allNames.set(v.id, v.name);
+  }
   const collections: RawFigmaExport["collections"] = [];
 
   for (const layer of LAYERS) {
@@ -297,8 +302,13 @@ export async function readVortex(): Promise<{ raw: RawFigmaExport; warnings: str
     collections.push({ name: layer, modes, variables });
   }
 
+  const styles = await readStyles(allNames);
+  warnings.push(...styles.warnings);
   return {
-    raw: { fileKey: "", exportedAt: new Date().toISOString(), collections, textStyles: [], effectStyles: [] },
+    raw: {
+      fileKey: "", exportedAt: new Date().toISOString(), collections,
+      textStyles: styles.textStyles, effectStyles: styles.effectStyles,
+    },
     warnings: capWarnings(warnings),
   };
 }
