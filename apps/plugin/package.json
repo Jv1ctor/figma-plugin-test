@@ -10,7 +10,8 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@token-bridge/protocol": "workspace:*"
+    "@token-bridge/protocol": "workspace:*",
+    "@token-bridge/tokens": "workspace:*"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.142.0",

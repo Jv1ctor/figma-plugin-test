@@ -26,6 +26,9 @@ importers:
       '@token-bridge/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@token-bridge/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
     devDependencies:
       '@figma/plugin-typings':
         specifier: ^1.142.0

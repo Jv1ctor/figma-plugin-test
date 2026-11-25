@@ -5,7 +5,7 @@ const id = (p: string) => `${p}:${nextId++}`;
 export function createFakeFigma(opts: { maxModes?: number } = {}) {
   const collections: any[] = [];
   const variables: any[] = [];
-  const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0 };
+  const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0, removeVariable: 0 };
 
   const makeCollection = (name: string) => {
     const pluginData: Record<string, string> = {};
@@ -35,6 +35,7 @@ export function createFakeFigma(opts: { maxModes?: number } = {}) {
       async getLocalVariablesAsync() { return [...variables]; },
       async getVariableByIdAsync(vid: string) { return variables.find((v) => v.id === vid) ?? null; },
       async getVariableCollectionByIdAsync(cid: string) { return collections.find((c) => c.id === cid) ?? null; },
+      createVariableAlias(v: any) { return { type: "VARIABLE_ALIAS", id: v.id }; },
       createVariableCollection(name: string) {
         calls.createCollection++;
         const c = makeCollection(name);
@@ -50,14 +51,18 @@ export function createFakeFigma(opts: { maxModes?: number } = {}) {
           resolvedType,
           variableCollectionId: collection.id,
           valuesByMode: {} as Record<string, unknown>,
+          description: "",
           scopes: ["ALL_SCOPES"],
           codeSyntax: {} as Record<string, string>,
           setValueForMode(modeId: string, value: unknown) {
             if (!collection.modes.some((m: any) => m.modeId === modeId)) throw new Error(`unknown mode ${modeId}`);
+            const target = value && (value as any).type === "VARIABLE_ALIAS" ? variables.find((x) => x.id === (value as any).id) : undefined;
+            if (target && target.resolvedType !== resolvedType) throw new Error("Mismatched variable resolved type");
             calls.setValueForMode++;
             v.valuesByMode[modeId] = structuredClone(value);
           },
           setVariableCodeSyntax(platform: string, value: string) { v.codeSyntax[platform] = value; },
+          remove() { calls.removeVariable++; variables.splice(variables.indexOf(v), 1); },
         };
         variables.push(v);
         return v;
