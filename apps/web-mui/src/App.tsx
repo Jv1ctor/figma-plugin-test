@@ -6,6 +6,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, useColorScheme } from "@mui/material/styles";
 import { MODE_ATTR, cssVarMap, muiPaletteValues } from "@token-bridge/tokens";
 import type { Mode, TokenSet } from "@token-bridge/tokens";
+import { BaseTab } from "./editor/BaseTab.tsx";
 import { ensureFontLoaded } from "./fonts.ts";
 import { RuntimeSheet } from "./runtime/sheet.ts";
 import { Dashboard } from "./showcase/Dashboard.tsx";
@@ -60,6 +61,7 @@ function ModeSync({ mode }: { mode: Mode }) {
 export function App() {
   const set = useEditor((s) => s.set);
   const mode = useEditor((s) => s.mode);
+  const tab = useEditor((s) => s.tab);
   useLayoutEffect(() => getRuntimeSheet().sync(cssVarMap(set)), [set]);
 
   const primaryFont = set.base["font-family/primary"]?.value;
@@ -77,7 +79,9 @@ export function App() {
       <CssBaseline />
       <ModeSync mode={mode} />
       <Header />
-      <Box component="section" aria-label="Editor" sx={{ borderBottom: "var(--vx-border-width-default) solid var(--vx-border-subtle)" }} />
+      <Box component="section" aria-label="Editor" sx={{ borderBottom: "var(--vx-border-width-default) solid var(--vx-border-subtle)" }}>
+        {tab === "base" && <BaseTab />}
+      </Box>
       <Box
         component="main"
         aria-label="Vitrine"
