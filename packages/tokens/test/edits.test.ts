@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSeed } from "../src/dtcg.ts";
+import { loadSeed } from "../src/seed.ts";
 import { valueLine, withValueLine } from "../src/describe.ts";
 import {
   EditError, applyScale, removeSpecific, setBaseValue, setGroupEnabled, setRef, upsertSpecific,

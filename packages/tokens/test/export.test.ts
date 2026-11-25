@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSeed } from "../src/dtcg.ts";
+import { loadSeed } from "../src/seed.ts";
 import { cssVarMap, cssVarName, muiPaletteValues, toCss, toTailwind } from "../src/index.ts";
 
 const seed = loadSeed();

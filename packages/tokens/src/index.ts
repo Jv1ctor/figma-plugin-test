@@ -8,3 +8,6 @@ export * from "./rules/index.ts";
 export * from "./describe.ts";
 export * from "./edits.ts";
 export * from "./export/index.ts";
+export * from "./seed.ts";
+export * from "./figma-export.ts";
+export * from "./diff.ts";

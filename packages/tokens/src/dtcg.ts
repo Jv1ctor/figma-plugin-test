@@ -1,4 +1,3 @@
-import seed from "../seed/vortex.tokens.json";
 import type {
   AliasToken, AliasValue, BaseToken, Flex, Layer, Mode, OptionalGroup, ShadowStyle, TextStyle, TokenSet, TokenType,
 } from "./types.ts";
@@ -203,8 +202,4 @@ export function parseDtcg(json: unknown): TokenSet {
     }
   }
   return set;
-}
-
-export function loadSeed(): TokenSet {
-  return parseDtcg(seed);
 }
