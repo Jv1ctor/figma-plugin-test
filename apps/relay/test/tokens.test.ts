@@ -141,6 +141,24 @@ describe("tokens", () => {
     plugin.close();
   });
 
+  it("an ack or snapshot without a tokens object persists nothing and does not crash", async () => {
+    const plugin = await connect(port, "plugin");
+    const web = await connect(port, "web");
+    const req = envelope("upsert-tokens", payload());
+    web.send(req);
+    await plugin.next((m) => m.type === "upsert-tokens");
+    plugin.send({ id: req.id, type: "ack", payload: { for: "upsert-tokens", variables: {}, styles: {}, warnings: [], durationMs: 1 } as any });
+    await wait(150);
+    const req2 = envelope("get-tokens-snapshot", undefined as any);
+    web.send(req2);
+    await plugin.next((m) => m.type === "get-tokens-snapshot");
+    plugin.send({ id: req2.id, type: "tokens-snapshot", payload: { tokens: null, warnings: [] } as any });
+    await wait(150);
+    expect(existsSync(lastFile())).toBe(false);
+    expect((await get("/tokens.json")).status).toBe(404);
+    plugin.close(), web.close();
+  });
+
   it("queues tokens offline independently of themes", async () => {
     const web = await connect(port, "web");
     await web.next(status);

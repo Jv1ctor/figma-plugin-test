@@ -194,10 +194,15 @@ export function createRelay(opts: RelayOptions = {}) {
         log("relay", c.red(`falha ao gravar last-tokens.json: ${(e as Error).message}`));
       }
     };
+    const isDoc = (v: unknown): v is LastTokens["tokens"] => typeof v === "object" && v !== null && !Array.isArray(v);
     if (msg.type === "ack" && (msg.payload as { for?: string })?.for === "upsert-tokens") {
-      persist((msg.payload as TokensAckPayload).tokens, muiById.get(msg.id) ?? last?.muiModule);
+      const tokens = (msg.payload as TokensAckPayload).tokens;
+      if (isDoc(tokens)) persist(tokens, muiById.get(msg.id) ?? last?.muiModule);
+      else log("relay", c.red("ack sem tokens válidos: nada gravado"));
     } else if (msg.type === "tokens-snapshot") {
-      persist((msg.payload as TokensSnapshotPayload).tokens, last?.muiModule);
+      const tokens = (msg.payload as TokensSnapshotPayload).tokens;
+      if (isDoc(tokens)) persist(tokens, last?.muiModule);
+      else log("relay", c.red("tokens-snapshot sem tokens válidos: nada gravado"));
     }
     muiById.delete(msg.id);
 
