@@ -78,6 +78,18 @@ describe("structural rules", () => {
     s.disabledGroups = ["data"];
     expect(rules(s)).not.toContain("data-palettes");
   });
+  it("warning ids are unique on a heavily broken set", () => {
+    const s = clone();
+    for (const k of STEPS) {
+      for (const n of [1, 2, 3]) s.base[`data-${n}/${k}`].value = s.base[`danger/${k}`].value;
+    }
+    s.base["neutral/950"].value = "#000000"; s.base["neutral/1000"].value = "#010101";
+    const w = validate(s);
+    expect(w.filter((x) => x.rule === "data-palettes").length).toBeGreaterThan(3);
+    expect(w.filter((x) => x.token === "base:neutral/1000").length).toBe(2);
+    const ids = w.map((x) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
   it("font weight", () => {
     expect(validate(seed, { fontWeights: { "Satoshi Variable": [400, 500] } }).some((w) => w.rule === "font-weight")).toBe(true);
     expect(validate(seed, { fontWeights: { "Satoshi Variable": [400, 500, 700] } }).some((w) => w.rule === "font-weight")).toBe(false);

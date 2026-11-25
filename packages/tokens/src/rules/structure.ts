@@ -131,7 +131,7 @@ function neutral(set: TokenSet): Warning[] {
     const name = `neutral/${step}`;
     const hex = hexOf(name);
     if (hex !== undefined && hex !== expected) {
-      out.push(warn("neutral", tokenKey("base", name), `${name} deve ser ${expected}, mas é ${hex}.`, { actual: hex, expected }));
+      out.push(warn("neutral", tokenKey("base", name), `${name} deve ser ${expected}, mas é ${hex}.`, { actual: hex, expected }, ":endpoint"));
     }
   }
   let prev: { name: string; l: number } | undefined;
@@ -142,7 +142,7 @@ function neutral(set: TokenSet): Warning[] {
     const l = oklchLightness(hex);
     if (prev && l >= prev.l) {
       out.push(warn("neutral", tokenKey("base", name), `Luminosidade de ${name} (${l.toFixed(3)}) não é menor que a de ${prev.name} (${prev.l.toFixed(3)}).`,
-        { actual: l.toFixed(3), expected: `< ${prev.l.toFixed(3)}`, against: prev.name }));
+        { actual: l.toFixed(3), expected: `< ${prev.l.toFixed(3)}`, against: prev.name }, ":monotonic"));
     }
     prev = { name, l };
   }
@@ -159,7 +159,7 @@ function dataPalettes(set: TokenSet): Warning[] {
       const d = deltaEOk(data[i].hex, data[j].hex);
       if (d >= DATA_MIN_DELTA_E) continue;
       out.push(warn("data-palettes", tokenKey("base", data[j].name), `${data[j].name} é parecida demais com ${data[i].name} (ΔE ${d.toFixed(3)}).`,
-        { actual: d.toFixed(3), expected: `≥ ${DATA_MIN_DELTA_E}`, against: data[i].name }));
+        { actual: d.toFixed(3), expected: `≥ ${DATA_MIN_DELTA_E}`, against: data[i].name }, `:${data[i].name}`));
     }
   }
   for (const palette of FEEDBACK) {
@@ -173,7 +173,7 @@ function dataPalettes(set: TokenSet): Warning[] {
       const dist = Math.min(raw, 360 - raw);
       if (dist >= DATA_MIN_HUE_DISTANCE) continue;
       out.push(warn("data-palettes", tokenKey("base", d.name), `${d.name} usa matiz de ${palette}/600 (diferença ${dist.toFixed(1)}°).`,
-        { actual: `${dist.toFixed(1)}°`, expected: `≥ ${DATA_MIN_HUE_DISTANCE}°`, against: `${palette}/600` }));
+        { actual: `${dist.toFixed(1)}°`, expected: `≥ ${DATA_MIN_HUE_DISTANCE}°`, against: `${palette}/600` }, `:${palette}`));
     }
   }
   return out;
