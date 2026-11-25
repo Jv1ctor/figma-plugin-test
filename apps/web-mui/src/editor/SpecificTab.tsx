@@ -40,7 +40,7 @@ const isShadowColor = (property: string, name: string) => property === "shadow" 
 function scopesAndType(property: string, name: string): { scopes: string[]; type: TokenType } {
   if (property === "typography") {
     const field = lastPart(name);
-    const type: TokenType = field === "font-family" ? "fontFamily" : field === "font-weight" ? "fontWeight" : "dimension";
+    const type: TokenType = field === "font-family" ? "fontFamily" : field === "font-weight" ? "fontWeight" : field === "letter-spacing" ? "number" : "dimension";
     return { scopes: [FIELD_SCOPES[field] ?? "FONT_SIZE"], type };
   }
   if (property === "shadow") return isShadowColor(property, name) ? { scopes: ["EFFECT_COLOR"], type: "color" } : { scopes: ["EFFECT_FLOAT"], type: "dimension" };
@@ -62,7 +62,6 @@ export function SpecificTab() {
   const warnings = useEditor((s) => s.warnings);
   const focusToken = useEditor((s) => s.focusToken);
   const [name, setName] = useState("");
-  const [chosen, setChosen] = useState<string>();
   const [refs, setRefs] = useState<{ light?: string; dark?: string; lightOpacity?: string; darkOpacity?: string }>({});
   const [uso, setUso] = useState("");
   const [naoUsar, setNaoUsar] = useState("");
@@ -72,7 +71,8 @@ export function SpecificTab() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const headOfName = name.split("/")[0] ?? "";
-  const property = chosen ?? ((PROPERTIES as readonly string[]).includes(headOfName) ? headOfName : "");
+  // O primeiro nível do nome decide a propriedade; o select só serve para começar um nome vazio ou inválido.
+  const property = (PROPERTIES as readonly string[]).includes(headOfName) ? headOfName : "";
   const composite = isShadowColor(property, name);
   const colorOptions = useMemo(
     () => (property ? baseOptions(set, "specific", optionsName(property, name), composite ? "color" : undefined) : []),
@@ -118,7 +118,7 @@ export function SpecificTab() {
       const next = upsertSpecific(current, draft);
       store.update((s) => ({ ...s, set: next }));
       setError(undefined);
-      setName(""); setChosen(undefined); setRefs({}); setUso(""); setNaoUsar(""); setPar("");
+      setName(""); setRefs({}); setUso(""); setNaoUsar(""); setPar("");
     } catch (e) {
       if (e instanceof EditError) setError(e.message);
       else throw e;
@@ -146,7 +146,11 @@ export function SpecificTab() {
         {error && <Alert severity="error" role="alert" onClose={() => setError(undefined)}>{error}</Alert>}
         <Box sx={{ display: "grid", gap: "var(--vx-space-small)", gridTemplateColumns: "1fr 1fr" }}>
           <TextField {...field} label="Nome" value={name} onChange={(e) => { setName(e.target.value); setError(undefined); }} />
-          <TextField {...field} select label="Propriedade" value={property} onChange={(e) => { setChosen(e.target.value); setRefs({}); }}>
+          <TextField
+            {...field} select label="Propriedade" value={property} disabled={property !== ""}
+            helperText={property !== "" ? "Definida pelo nome" : undefined}
+            onChange={(e) => { setName(`${e.target.value}/${name.includes("/") ? name.slice(name.indexOf("/") + 1) : ""}`); setRefs({}); setError(undefined); }}
+          >
             {PROPERTIES.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
           </TextField>
         </Box>

@@ -51,8 +51,6 @@ describe("SpecificTab", () => {
     const user = userEvent.setup();
     render(<Providers><SpecificTab /></Providers>);
     await user.type(screen.getByLabelText("Nome"), "space/gutter");
-    await user.click(screen.getByRole("combobox", { name: "Propriedade" }));
-    await user.click(screen.getByRole("option", { name: "space" }));
     await user.click(screen.getByLabelText("claro"));
     await user.click(screen.getByRole("option", { name: /^space\/16/ }));
     await user.type(screen.getByLabelText("Uso"), "Respiro lateral");
@@ -75,5 +73,32 @@ describe("SpecificTab", () => {
     await user.type(screen.getByLabelText("Nome"), "Foo");
     expect(screen.getAllByText(/^Formato:/).length).toBeGreaterThan(0);
     expect((screen.getByRole("button", { name: "Criar" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("o prefixo do nome decide a propriedade: Propriedade não contradiz o nome", async () => {
+    const user = userEvent.setup();
+    render(<Providers><SpecificTab /></Providers>);
+    await user.type(screen.getByLabelText("Nome"), "text/caption");
+    await user.click(screen.getByRole("combobox", { name: "Propriedade" }));
+    const space = screen.queryByRole("option", { name: "space" });
+    if (space) await user.click(space);
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+    const t = store.get().set.specific["text/caption"]!;
+    expect(t.type).toBe("color");
+    expect(t.scopes).toEqual(["TEXT_FILL"]);
+    expect(String(t.values.light)).not.toMatch(/^space\//);
+  });
+
+  it("escolher a propriedade com o nome vazio define o prefixo; letter-spacing é number", async () => {
+    const user = userEvent.setup();
+    render(<Providers><SpecificTab /></Providers>);
+    await user.click(screen.getByRole("combobox", { name: "Propriedade" }));
+    await user.click(screen.getByRole("option", { name: "typography" }));
+    expect((screen.getByLabelText("Nome") as HTMLInputElement).value).toBe("typography/");
+    await user.type(screen.getByLabelText("Nome"), "body/xx-large/letter-spacing");
+    await user.click(screen.getByRole("button", { name: "Criar" }));
+    const t = store.get().set.specific["typography/body/xx-large/letter-spacing"]!;
+    expect(t.type).toBe("number");
+    expect(t.scopes).toEqual(["LETTER_SPACING"]);
   });
 });
