@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadSeed } from "@token-bridge/tokens";
-import { fromFigmaExport, valueLine } from "@token-bridge/tokens/figma";
+import { fromFigmaExport, valueLine, withValueLine } from "@token-bridge/tokens/figma";
 import { createFakeFigma } from "./fake-figma.ts";
 import { capWarnings, readVortex, upsertVortex } from "../src/vortex.ts";
 
@@ -12,6 +12,15 @@ const install = (opts?: Parameters<typeof createFakeFigma>[0]) => {
 beforeEach(() => install());
 
 const seed = loadSeed();
+/** What a fresh write stores: payload description with its Valor line made consistent. */
+const consistent = (set: typeof seed) => {
+  const out: any = { ...set, textStyles: [], shadowStyles: [] };
+  for (const layer of ["base", "semantic", "specific"] as const) {
+    out[layer] = Object.fromEntries(Object.entries(set[layer]).map(([n, t]: [string, any]) =>
+      [n, { ...t, description: withValueLine(t.description, valueLine(set, layer, n)) }]));
+  }
+  return out;
+};
 const coll = (name: string) => fake.collections.find((c) => c.name === name);
 const variable = (collection: string, name: string) =>
   fake.variables.find((v) => v.name === name && v.variableCollectionId === coll(collection)!.id);
@@ -26,13 +35,23 @@ describe("upsertVortex", () => {
     expect(res.warnings).toEqual([]);
     const { raw, warnings } = await readVortex();
     expect(warnings).toEqual([]);
-    expect(fromFigmaExport(raw)).toEqual({ ...seed, textStyles: [], shadowStyles: [] });
+    expect(fromFigmaExport(raw)).toEqual(consistent(seed));
   });
 
   it("second identical send writes nothing", async () => {
     await upsertVortex(seed, []);
     const writes = fake.calls.setValueForMode;
+    let metaWrites = 0;
+    for (const v of fake.variables) {
+      for (const k of ["description", "scopes"]) {
+        let cur = v[k];
+        Object.defineProperty(v, k, { get: () => cur, set: (x) => { metaWrites++; cur = x; } });
+      }
+      const orig = v.setVariableCodeSyntax;
+      v.setVariableCodeSyntax = (...a: any[]) => { metaWrites++; return orig(...a); };
+    }
     const res = await upsertVortex(seed, []);
+    expect(metaWrites).toBe(0);
     expect(res.variables).toMatchObject({ created: 0, updated: 0, unchanged: 454, removed: 0 });
     expect(fake.calls.setValueForMode).toBe(writes);
     expect(fake.calls.createVariable).toBe(454);
@@ -62,6 +81,26 @@ describe("upsertVortex", () => {
     expect(res.variables.updated).toBe(1);
     expect(variable("semantic", "text/primary").id).toBe(id);
     expect(v.description).toBe("Uso: X\nValor: " + valueLine(set2, "semantic", "text/primary"));
+  });
+
+  it("updates scopes on an existing variable and counts it as updated", async () => {
+    await upsertVortex(seed, []);
+    const id = variable("semantic", "text/primary").id;
+    const set2 = {
+      ...seed,
+      semantic: { ...seed.semantic, "text/primary": { ...seed.semantic["text/primary"]!, scopes: ["ALL_FILLS"] } },
+    };
+    const res = await upsertVortex(set2, []);
+    expect(res.variables).toMatchObject({ created: 0, updated: 1, unchanged: 453 });
+    expect(variable("semantic", "text/primary")).toMatchObject({ id, scopes: ["ALL_FILLS"] });
+  });
+
+  it("mode-limit leaves existing collections' mode names untouched", async () => {
+    install({ maxModes: 1 });
+    const c = fake.figma.variables.createVariableCollection("semantic");
+    await expect(upsertVortex(seed, [])).rejects.toMatchObject({ code: "mode-limit" });
+    expect(c.modes.map((m: any) => m.name)).toEqual(["Mode 1"]);
+    expect(fake.variables).toEqual([]);
   });
 
   it("writes scopes and codeSyntax", async () => {
@@ -115,7 +154,7 @@ describe("upsertVortex", () => {
     expect(c.modes.map((m: any) => m.name)).toEqual(["Mode 1"]);
     const v = variable("base", "brand-1/50");
     expect(v.valuesByMode[c.defaultModeId]).toBeDefined();
-    expect(fromFigmaExport((await readVortex()).raw)).toEqual({ ...seed, textStyles: [], shadowStyles: [] });
+    expect(fromFigmaExport((await readVortex()).raw)).toEqual(consistent(seed));
   });
 
   it("same name in another collection is untouched", async () => {

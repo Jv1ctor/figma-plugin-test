@@ -74,20 +74,27 @@ function addMode(collection: VariableCollection, name: string) {
   }
 }
 
-/** Mode ids for the collection; creates/renames modes as needed. */
-function ensureModes(layer: Layer, collection: VariableCollection, isNew: boolean): Record<string, string> {
-  const id = (name: string) => collection.modes.find((m) => m.name === name)?.modeId;
+/**
+ * Adds missing modes right away (may throw mode-limit) and returns the renames to run later,
+ * so a failed pre-check never leaves an existing collection half-renamed.
+ */
+function planModes(layer: Layer, collection: VariableCollection, isNew: boolean, renames: Array<() => void>) {
   if (layer === "base") {
-    if (isNew) collection.renameMode(collection.defaultModeId, "value");
-    return { value: collection.defaultModeId };
+    if (isNew) renames.push(() => collection.renameMode(collection.defaultModeId, "value"));
+    return;
   }
-  if (!id("light")) {
-    const first = collection.modes[0];
-    if (first && first.name !== "dark") collection.renameMode(first.modeId, "light");
-    else addMode(collection, "light");
-  }
-  if (!id("dark")) addMode(collection, "dark");
-  return { light: id("light")!, dark: id("dark")! };
+  const has = (name: string) => collection.modes.some((m) => m.name === name);
+  const first = collection.modes[0];
+  const renameFirst = !has("light") && !!first && first.name !== "dark";
+  if (!has("light") && !renameFirst) addMode(collection, "light");
+  if (!has("dark")) addMode(collection, "dark");
+  if (renameFirst) renames.push(() => collection.renameMode(first!.modeId, "light"));
+}
+
+function modeIdsOf(layer: Layer, collection: VariableCollection): Record<string, string> {
+  if (layer === "base") return { value: collection.defaultModeId };
+  const id = (name: string) => collection.modes.find((m) => m.name === name)!.modeId;
+  return { light: id("light"), dark: id("dark") };
 }
 
 function hexTo(v: RawValue): VariableValue | undefined {
@@ -137,6 +144,7 @@ export async function upsertVortex(set: TokenSet, remove: string[]): Promise<Vor
   const created: VariableCollection[] = [];
   const collections = {} as Record<Layer, VariableCollection>;
   const modeIds = {} as Record<Layer, Record<string, string>>;
+  const renames: Array<() => void> = [];
 
   // Pre-check: all three collections and their modes, before any variable is written.
   try {
@@ -148,8 +156,10 @@ export async function upsertVortex(set: TokenSet, remove: string[]): Promise<Vor
         created.push(c);
       }
       collections[layer] = c;
-      modeIds[layer] = ensureModes(layer, c, isNew);
+      planModes(layer, c, isNew, renames);
     }
+    for (const rename of renames) rename();
+    for (const layer of LAYERS) modeIds[layer] = modeIdsOf(layer, collections[layer]);
   } catch (e) {
     for (const c of created) c.remove();
     throw e;
@@ -186,17 +196,20 @@ export async function upsertVortex(set: TokenSet, remove: string[]): Promise<Vor
       let variable = existing;
       if (!variable) {
         variable = figma.variables.createVariable(raw.name, collections[layer], raw.type);
-        variable.description = raw.description;
-        variable.scopes = raw.scopes as VariableScope[];
         byName[layer].set(raw.name, variable);
-      } else {
-        const description = withValueLine(variable.description, valueLine(set, layer, raw.name));
-        if (description !== variable.description) variable.description = description;
+      }
+      let changed = false;
+      const line = valueLine(set, layer, raw.name);
+      const description = withValueLine(existing ? variable.description : raw.description, line);
+      if (description !== variable.description) { variable.description = description; changed = true; }
+      const scopes = raw.scopes as VariableScope[];
+      if (scopes.length !== variable.scopes.length || scopes.some((x, i) => x !== variable.scopes[i])) {
+        variable.scopes = scopes;
+        changed = true;
       }
       const syntax = `var(${cssVarName(layer, raw.name)})`;
-      if (variable.codeSyntax.WEB !== syntax) variable.setVariableCodeSyntax("WEB", syntax);
+      if (variable.codeSyntax.WEB !== syntax) { variable.setVariableCodeSyntax("WEB", syntax); changed = true; }
 
-      let changed = false;
       for (const [modeId, value] of desired) {
         if (!sameValue(variable.valuesByMode[modeId], value)) {
           variable.setValueForMode(modeId, value);
