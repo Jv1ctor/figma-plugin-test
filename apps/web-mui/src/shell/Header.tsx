@@ -8,9 +8,9 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
 import type { Mode } from "@token-bridge/tokens";
+import { ExportMenu } from "../export/ExportMenu.tsx";
 import { store, useEditor, type Tab as EditorTab } from "../state/store.ts";
 
 const TABS: Array<{ value: EditorTab; label: string }> = [
@@ -68,9 +68,7 @@ export function Header() {
           <ToggleButton value="light">☀ claro</ToggleButton>
           <ToggleButton value="dark">☾ escuro</ToggleButton>
         </ToggleButtonGroup>
-        <Button variant="outlined" color="inherit" disabled endIcon={<ArrowDropDownIcon />}>
-          Exportar
-        </Button>
+        <ExportMenu />
       </Toolbar>
     </AppBar>
   );

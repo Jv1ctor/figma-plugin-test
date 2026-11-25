@@ -66,7 +66,7 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByText("Vortex Builder")).toBeTruthy();
     for (const name of ["Base", "Semantic", "Specific"]) expect(screen.getByRole("tab", { name })).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Exportar/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Exportar/ }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: /escuro/ }));
     expect(store.get().mode).toBe("dark");
     expect(document.documentElement.dataset.mode).toBe("dark");

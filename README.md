@@ -27,6 +27,25 @@ No **Figma Desktop**: *Plugins → Development → Import plugin from manifest�
 
 Outros comandos: `pnpm test` (31 testes), `pnpm typecheck`, `pnpm --filter plugin watch`, `pnpm examples` (regenera `examples/*.json`).
 
+## Vortex × MUI builder
+
+`apps/web-mui` é um laboratório para editar os tokens Vortex (base, semantic, specific) e ver o efeito em telas reais de MUI v7, nos modos claro e escuro.
+
+```bash
+pnpm dev     # http://localhost:5174 (a fonte Satoshi é baixada automaticamente)
+```
+
+O menu **Exportar** gera quatro arquivos, todos com os mesmos nomes de token do Figma:
+
+| Arquivo | Conteúdo |
+|---|---|
+| `vortex.tokens.json` | Tokens em DTCG, para reimportar (*Importar JSON…*) |
+| `vortex.css` | Variáveis CSS: `--vx-base-*` e `--vx-*`, com `:root, [data-mode="light"]` e `[data-mode="dark"]` |
+| `vortex.tailwind.css` | Tema do Tailwind v4 (`@import "./vortex.css"` + `@theme`) |
+| `vortex.mui.ts` | Tema MUI autônomo: importa só `@mui/material` e `./vortex.css`, e exporta `theme` e `vortexPalette` |
+
+*Restaurar padrão do laboratório* volta ao seed e apaga o rascunho salvo no navegador. A sincronização com o Figma fica para a fase 2.
+
 ## Protocolo
 
 Envelope: `{ id: string, type: string, payload?: any }`. Tipos em `packages/protocol/src/messages.ts`.
