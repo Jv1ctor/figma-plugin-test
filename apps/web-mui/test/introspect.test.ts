@@ -129,6 +129,35 @@ describe("introspect", () => {
   });
 });
 
+describe("regressões da fase de revisão", () => {
+  const BASELINE = `html :focus-visible:not(.MuiInputBase-input) { outline: var(--vx-border-width-focus) solid var(--vx-border-focus); }
+.Mui-disabled { opacity: var(--vx-opacity-disabled); }
+.Mui-disabled .Mui-disabled { opacity: 1; }`;
+  it("baseline: elemento comum não ganha foco nem opacidade", () => {
+    css(BASELINE);
+    expect(run(el("span", "")).rows).toEqual([]);
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    root.append(r);
+    expect(run(r).rows).toEqual([]);
+  });
+  it("baseline: botão MUI ganha foco e Desabilitado", () => {
+    css(BASELINE);
+    const rows = run(el("button", "MuiButtonBase-root MuiButton-root")).rows;
+    expect(rows.filter((x) => x.state === "focus").map((x) => x.token).sort()).toEqual(["border-width/focus", "border/focus"]);
+    expect(rows).toContainEqual(expect.objectContaining({ state: "disabled", token: "opacity/disabled" }));
+  });
+  it("lista de seletores: o estado repouso vence com o seletor que casa", () => {
+    css(".m{color:var(--vx-text-secondary)} .m, .m.Mui-disabled{color:var(--vx-text-primary)}");
+    const rows = run(el("div", "m")).rows;
+    expect(rows.find((r) => r.state === "rest")!.token).toBe("text/primary");
+    expect(rows.find((r) => r.state === "disabled")!.token).toBe("text/primary");
+  });
+  it("lista de seletores: não perde o hover", () => {
+    css(".n:hover, .n.Mui-focusVisible{color:var(--vx-text-link)}");
+    expect(run(el("div", "n")).rows.map((r) => r.state).sort()).toEqual(["focus", "hover"]);
+  });
+});
+
 describe("propertyLabel", () => {
   it("segue a tabela", () => {
     expect(propertyLabel("background")).toBe("fundo");

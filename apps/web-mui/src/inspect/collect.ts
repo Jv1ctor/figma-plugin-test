@@ -14,7 +14,7 @@ export interface Decl {
   order: number;
 }
 
-interface RuleSelector { matchSel: string; state: InspectState; pseudo?: Pseudo; spec: Specificity }
+interface RuleSelector { matchSel: string; state: InspectState; pseudo?: Pseudo; gate?: "focusable" | "mui"; spec: Specificity }
 export interface CollectedRule { selectors: RuleSelector[]; decls: Array<[string, string]>; order: number }
 
 const STATES: Array<[Exclude<InspectState, "rest">, RegExp]> = [
@@ -24,22 +24,51 @@ const STATES: Array<[Exclude<InspectState, "rest">, RegExp]> = [
   ["hover", /:hover(?![\w-])/g],
 ];
 const FUNCTIONAL = /:(?:not|is|where|has)\((?:[^()]|\([^()]*\))*\)/g;
+const ATTRIBUTE = /\[[^\]]*\]/g;
+const FOCUSABLE = 'button, a[href], input, select, textarea, [contenteditable], [tabindex]:not([tabindex^="-"])';
+const MUI_ROOT = /(?:^|\s)Mui[A-Za-z]+-root(?:\s|$)/;
 
-/** Remove estados e pseudo-elementos do seletor; devolve o seletor para `matches`, o estado e o pseudo. */
+/**
+ * Remove estados e pseudo-elementos do seletor; devolve o seletor para `matches`, o estado, o pseudo e, quando o
+ * sujeito é só um estado (`.Mui-disabled`, `:focus-visible:not(…)`), a condição para o elemento poder assumi-lo.
+ * Compostos de ancestrais que seriam só estado descartam o seletor (não viram `*`).
+ */
 function parseSelector(raw: string): Omit<RuleSelector, "spec"> | null {
   const masked: string[] = [];
-  let s = raw.replace(FUNCTIONAL, (m) => `\u0000${masked.push(m) - 1}\u0000`);
+  const mask = (m: string): string => `\u0000${masked.push(m) - 1}\u0000`;
+  const s = raw.replace(FUNCTIONAL, mask).replace(ATTRIBUTE, mask);
+  const parts = s.split(/(\s*[>+~]\s*|\s+)/); // compostos nas posições pares, combinadores nas ímpares
   let pseudo: Pseudo | undefined;
-  s = s.replace(/::?(before|after)(?![\w-])/g, (_, p: Pseudo) => { pseudo = p; return ""; });
-  if (/::[\w-]+/.test(s)) return null;
   let state: InspectState = "rest";
-  for (const [name, re] of STATES) {
-    if (re.test(s)) { if (state === "rest") state = name; s = s.replace(re, ""); }
-    re.lastIndex = 0;
+  let gate: RuleSelector["gate"];
+  for (let i = 0; i < parts.length; i += 2) {
+    const subject = i === parts.length - 1;
+    let c = parts[i]!;
+    if (subject) {
+      c = c.replace(/::?(before|after)(?![\w-])/g, (_, p: Pseudo) => { pseudo = p; return ""; });
+      if (/::[\w-]+/.test(c)) return null;
+    }
+    let found = false;
+    let focusState = false;
+    for (const [name, re] of STATES) {
+      if (re.test(c)) {
+        found = true;
+        if (state === "rest") state = name;
+        if (name === "focus") focusState = true;
+        c = c.replace(re, "");
+      }
+      re.lastIndex = 0;
+    }
+    if (found && !/[\w#.*-]/.test(c.replace(/\u0000\d+\u0000/g, ""))) { // composto só de estado
+      if (!subject) return null;
+      if (focusState) gate = "focusable";
+      else if (state === "disabled" || state === "active") gate = "mui";
+      c = `*${c}`;
+    } else if (c === "") c = "*";
+    parts[i] = c;
   }
-  if (s.trim() === "" || /[\s>+~]$/.test(s)) s += "*";
-  s = s.replace(/\u0000(\d+)\u0000/g, (_, i: string) => masked[Number(i)]!);
-  return { matchSel: s.trim(), state, pseudo };
+  const out = parts.join("").replace(/\u0000(\d+)\u0000/g, (_, i: string) => masked[Number(i)]!);
+  return { matchSel: out.trim(), state, pseudo, gate };
 }
 
 /** Divide o corpo de declarações em pares nome/valor, respeitando parênteses e aspas. */
@@ -109,14 +138,20 @@ export function collectRules(doc: Document): CollectedRule[] {
 export function declsFor(el: Element, rules: CollectedRule[]): Decl[] {
   const out: Decl[] = [];
   for (const rule of rules) {
-    let best: RuleSelector | undefined;
+    const best = new Map<string, RuleSelector>(); // melhor seletor casado por (estado, pseudo)
     for (const sel of rule.selectors) {
       let hit = false;
       try { hit = el.matches(sel.matchSel); } catch { hit = false; } // pseudo-classe que o motor não conhece
-      if (hit && (!best || !beats(best.spec, sel.spec))) best = sel;
+      if (hit && sel.gate === "focusable") hit = el.matches(FOCUSABLE);
+      if (hit && sel.gate === "mui") hit = MUI_ROOT.test(el.getAttribute("class") ?? "");
+      if (!hit) continue;
+      const k = `${sel.state}|${sel.pseudo ?? ""}`;
+      const cur = best.get(k);
+      if (!cur || !beats(cur.spec, sel.spec)) best.set(k, sel);
     }
-    if (!best) continue;
-    for (const [prop, value] of rule.decls) out.push({ prop, value, state: best.state, pseudo: best.pseudo, rank: 2, spec: best.spec, order: rule.order });
+    for (const sel of best.values()) {
+      for (const [prop, value] of rule.decls) out.push({ prop, value, state: sel.state, pseudo: sel.pseudo, rank: 2, spec: sel.spec, order: rule.order });
+    }
   }
   for (const attr of ["fill", "stroke"]) {
     const v = el.getAttribute(attr);
