@@ -1,11 +1,6 @@
 import { useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -46,7 +41,6 @@ const DOWNLOADS = [
 
 export function ExportMenu() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   notify = setNotice;
@@ -72,7 +66,6 @@ export function ExportMenu() {
         ))}
         <Divider />
         <MenuItem onClick={() => { close(); fileInput.current?.click(); }}>Importar JSON…</MenuItem>
-        <MenuItem onClick={() => { close(); setConfirmReset(true); }}>Restaurar padrão do laboratório</MenuItem>
       </Menu>
       <input
         ref={fileInput}
@@ -86,16 +79,6 @@ export function ExportMenu() {
           if (file) void importFile(file);
         }}
       />
-      <Dialog open={confirmReset} onClose={() => setConfirmReset(false)}>
-        <DialogTitle>Restaurar padrão</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Restaurar o padrão do laboratório? As edições atuais serão perdidas.</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmReset(false)}>Cancelar</Button>
-          <Button color="error" onClick={() => { setConfirmReset(false); store.reset(); }}>Restaurar</Button>
-        </DialogActions>
-      </Dialog>
       <Snackbar open={notice !== null} autoHideDuration={5000} onClose={() => setNotice(null)}>
         {notice ? <Alert severity={notice.severity} onClose={() => setNotice(null)}>{notice.message}</Alert> : undefined}
       </Snackbar>

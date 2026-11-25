@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
 import type { Mode } from "@token-bridge/tokens";
 import { ExportMenu } from "../export/ExportMenu.tsx";
+import { ResetButton } from "./ResetButton.tsx";
 import { store, useEditor, type Tab as EditorTab } from "../state/store.ts";
 
 const TABS: Array<{ value: EditorTab; label: string }> = [
@@ -68,6 +69,7 @@ export function Header() {
           <ToggleButton value="light">☀ claro</ToggleButton>
           <ToggleButton value="dark">☾ escuro</ToggleButton>
         </ToggleButtonGroup>
+        <ResetButton />
         <ExportMenu />
       </Toolbar>
     </AppBar>
