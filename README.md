@@ -46,7 +46,16 @@ O menu **Exportar** gera quatro arquivos, todos com os mesmos nomes de token do 
 
 No `vortex.mui.ts`, a fonte Satoshi não vem embutida (licença): instale-a no app ou passe `{ fontUrl: "/caminho/Satoshi-Variable.woff2" }` como segundo argumento de `createVortexTheme`. Renderize `<CssBaseline />` para o `@font-face`, o `body`, o anel de foco e as regras de disabled valerem.
 
-*Restaurar padrão do laboratório* volta ao seed e apaga o rascunho salvo no navegador. A sincronização com o Figma fica para a fase 2.
+*Restaurar padrão do laboratório* volta ao seed e apaga o rascunho salvo no navegador.
+
+### Sincronizar com o Figma (Vortex)
+
+```bash
+pnpm dev                       # relay (:3055) + builder (http://localhost:5174)
+pnpm --filter plugin build     # recompile o plugin sempre que o código dele mudar
+```
+
+Abra o plugin **Token Bridge** num arquivo **Professional ou superior**: o plano Starter permite 1 modo por coleção e o envio falha com `mode-limit`, sem alterar o arquivo. Com o plugin conectado, use **Enviar para o Figma** (ou o envio automático) e **Importar do Figma…** no builder. Para apontar o builder para outro relay, defina `VITE_RELAY_URL` (padrão `ws://localhost:3055`). O último estado confirmado pelo Figma fica em `apps/relay/data/last-tokens.json` (ignorado pelo git).
 
 ## Protocolo
 
@@ -55,11 +64,15 @@ Envelope: `{ id: string, type: string, payload?: any }`. Tipos em `packages/prot
 | type | direção | payload |
 | --- | --- | --- |
 | `hello` | cliente → relay | `{ role: "plugin" \| "web" \| "agent" }` (obrigatório antes de qualquer outra mensagem) |
-| `status` | relay → web | `{ plugin: "connected" \| "disconnected", queued, lastApplied? }` |
+| `status` | relay → web | `{ plugin: "connected" \| "disconnected", queued, lastApplied?, tokensQueued, lastTokens?: { at } }` |
 | `upsert-theme` | web/agent → plugin | `Theme` |
 | `get-snapshot` | web/agent → plugin | — |
 | `snapshot` | plugin → origem | `Theme` |
 | `ack` | plugin → origem | `{ theme, created, updated, unchanged, clamped: [{token, mode, from}], durationMs, replayed? }` |
+| `upsert-tokens` | web → plugin | `{ tokens: DTCG, remove?: { specific: string[] }, muiModule? }` (o relay não repassa `muiModule` ao plugin) |
+| `get-tokens-snapshot` | web → plugin | — |
+| `tokens-snapshot` | plugin → origem | `{ tokens: DTCG, warnings: string[] }` |
+| `ack` (de `upsert-tokens`) | plugin → origem | `{ for: "upsert-tokens", variables, styles, warnings, tokens, durationMs, replayed? }`, com `tokens` relido do Figma |
 | `error` | plugin/relay → origem | `{ code, message }`, com `code` ∈ `plugin-offline`, `timeout`, `invalid`, `mode-limit`, `figma`, `no-collection` |
 
 `ack` e `error` sempre trazem o mesmo `id` da requisição.
@@ -70,7 +83,13 @@ Envelope: `{ id: string, type: string, payload?: any }`. Tipos em `packages/prot
 curl -X POST localhost:3055/theme -d @examples/zinc.json   # 200 ack · 202 na fila · 400 inválido · 504 timeout (5s)
 curl localhost:3055/snapshot                               # tema atual lido do Figma
 curl localhost:3055/status
+curl localhost:3055/tokens.json          # último estado confirmado pelo Figma (DTCG)
+curl localhost:3055/tokens.css           # idem, como variáveis CSS
+curl localhost:3055/tokens.tailwind.css  # idem, tema do Tailwind v4
+curl localhost:3055/tokens.mui.ts        # último módulo MUI enviado pelo builder
 ```
+
+As rotas `/tokens.*` respondem 404 até o primeiro envio confirmado.
 
 ## Mapeamento no Figma
 

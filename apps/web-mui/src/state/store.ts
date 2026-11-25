@@ -157,10 +157,10 @@ export const store = {
   /** Substitui o set pelo do Figma, preservando os grupos desligados locais; zera as lápides. */
   importSet(set: TokenSet): void {
     const local = state.set;
-    const keep = <T extends { name: string }>(layer: "base" | "semantic" | "specific", incoming: Record<string, T>): Record<string, T> => {
+    const keep = <L extends "base" | "semantic" | "specific">(layer: L, incoming: TokenSet[L]): TokenSet[L] => {
       const out = { ...incoming };
-      for (const [n, t] of Object.entries(local[layer] as Record<string, T>)) {
-        if (!(n in out) && isDisabled(local, layer, n)) out[n] = t; // nunca vão ao Figma: não podem sumir do rascunho
+      for (const [n, t] of Object.entries(local[layer])) {
+        if (!(n in out) && isDisabled(local, layer, n)) (out as Record<string, typeof t>)[n] = t; // nunca vão ao Figma: não podem sumir do rascunho
       }
       return out;
     };

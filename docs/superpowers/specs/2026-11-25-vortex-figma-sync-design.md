@@ -127,7 +127,7 @@ A ordem segue a das dependências e sempre parte de **pré-checagem antes de mex
 4. **Semantic e depois specific:** upsert por nome. Os valores `light` e `dark` são `VARIABLE_ALIAS` para a variável da base com aquele nome. A composta vira `{color: alias, opacity: alias}`. "Inalterado" significa que o alias já aponta para o mesmo id.
 5. **Metadados de cada variável tocada:**
    - `scopes` vêm sempre do payload.
-   - `description`: se a variável é **nova**, recebe a descrição completa do payload. Se **já existe**, só a linha `Valor:` é trocada, usando `withValueLine(descAtualNoFigma, valueLine(set, layer, name))`. As demais linhas, como Uso, Não usar e Par, continuam as do Figma, que é a fonte da verdade.
+   - `description`: se a variável é **nova**, recebe a descrição do payload com a linha `Valor:` normalizada via `withValueLine(descPayload, valueLine(set, layer, name))`. Se **já existe**, só a linha `Valor:` é trocada, usando `withValueLine(descAtualNoFigma, valueLine(set, layer, name))`. As demais linhas, como Uso, Não usar e Par, continuam as do Figma, que é a fonte da verdade.
    - `codeSyntax.WEB = var(--vx-…)`, com o nome de `cssVarName`, para o Dev Mode mostrar a var certa (**decisão do builder**, segue o shadcn).
 6. **Remoções:** apenas os nomes em `remove.specific`, apenas na coleção `specific`, apenas se existirem, via `variable.remove()`.
 7. **Estilos:** seção 6.4.
@@ -328,6 +328,8 @@ O cabeçalho ganha, à esquerda de "Avisos":
    - conferir que as descrições mantêm Uso/Par e só a linha `Valor:` muda.
 4. Editar um alias no Figma, reabrir o builder e conferir que o banner aparece; importar.
 5. Conferir que `curl localhost:3055/tokens.css` reflete o último envio.
+6. Segundo envio idêntico → estilos inalterados.
+7. Estilos de texto do laboratório mantêm o `fontName`.
 
 Num arquivo Starter, o resultado esperado no passo 2 é o erro `mode-limit`, com o arquivo intacto.
 
