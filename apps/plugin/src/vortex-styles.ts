@@ -96,12 +96,9 @@ export async function upsertStyles(ctx: VortexContext, raw: RawFigmaExport): Pro
         style = figma.createTextStyle();
         style.name = spec.name;
         style.description = spec.description;
+        style.fontName = fontName; // só estilo novo recebe fontName (spec §6.4)
       }
       let changed = false;
-      if (style.fontName.family !== fontName.family || style.fontName.style !== fontName.style) {
-        style.fontName = fontName;
-        changed = true;
-      }
       for (const field of TEXT_FIELDS) {
         if (boundId(style.boundVariables, field) !== vars[field]!.id) {
           style.setBoundVariable(field, vars[field]!);
@@ -142,7 +139,7 @@ export async function upsertStyles(ctx: VortexContext, raw: RawFigmaExport): Pro
           changed = true;
         }
       }
-      if (changed) style.effects = [effect];
+      if (changed) style.effects = [effect, ...style.effects.slice(1)];
       effectByName.set(spec.name, style);
       tally(isNew, changed);
     } catch (e) {

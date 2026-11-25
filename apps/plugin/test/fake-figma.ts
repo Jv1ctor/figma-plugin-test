@@ -15,7 +15,7 @@ export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string
   const checkType = (field: string, v: any) => {
     if (FIELD_TYPE[field] !== v.resolvedType) throw new Error("Mismatched variable resolved type");
   };
-  const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0, removeVariable: 0 };
+  const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0, removeVariable: 0, fontNameWrites: 0 };
 
   const makeCollection = (name: string) => {
     const pluginData: Record<string, string> = {};
@@ -50,9 +50,20 @@ export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string
       let fontName = { family: "Inter", style: "Regular" };
       const st = {
         id: id("S"), name: "", description: "", boundVariables: {} as Record<string, unknown>,
-        get fontName() { return fontName; },
+        // like Figma: a style with fontWeight bound to a variable reports the matching face
+        get fontName() {
+          const bound = st.boundVariables.fontWeight as { id: string } | undefined;
+          const resolve = (vid: string): unknown => {
+            const val: any = Object.values(variables.find((x) => x.id === vid)?.valuesByMode ?? {})[0];
+            return val && val.type === "VARIABLE_ALIAS" ? resolve(val.id) : val;
+          };
+          const weight = bound ? resolve(bound.id) : undefined;
+          const face = weight === undefined ? undefined : ({ 500: "Medium", 700: "Bold", 400: "Regular" } as Record<number, string>)[weight as number];
+          return face ? { ...fontName, style: face } : fontName;
+        },
         set fontName(f: { family: string; style: string }) {
           if (!loaded.has(`${f.family}/${f.style}`)) throw new Error("Cannot write to node with unloaded font");
+          calls.fontNameWrites++;
           fontName = { ...f };
         },
         remove() { textStyles.splice(textStyles.indexOf(st), 1); },

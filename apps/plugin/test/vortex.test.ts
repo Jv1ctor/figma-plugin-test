@@ -148,6 +148,59 @@ describe("upsertVortex", () => {
     expect(variable("base", name)).toBeUndefined();
   });
 
+  it("a rejected Figma write skips only that variable with a warning", async () => {
+    const seen = new Set<string>();
+    const origCreate = fake.figma.variables.createVariable;
+    fake.figma.variables.createVariable = (name: string, c: any, t: string) => {
+      const v = origCreate(name, c, t);
+      if (name === "text/primary" && !seen.has(name)) {
+        seen.add(name);
+        v.setValueForMode = () => { throw new Error("boom"); };
+      }
+      return v;
+    };
+    const res = await upsertVortex(seed, []);
+    expect(res.warnings).toContain('"semantic/text/primary": Figma recusou a escrita (boom); ignorado');
+    expect(res.variables.created).toBe(453);
+    expect(res.styles.created).toBe(14);
+    expect(variable("semantic", "text/secondary").valuesByMode).not.toEqual({});
+  });
+
+  it("a rejected scopes write also skips with a warning", async () => {
+    await upsertVortex(seed, []);
+    const v = variable("semantic", "text/primary");
+    Object.defineProperty(v, "scopes", { get: () => ["ALL_SCOPES"], set: () => { throw new Error("nope"); } });
+    const set2 = { ...seed, semantic: { ...seed.semantic, "text/primary": { ...seed.semantic["text/primary"]!, scopes: ["ALL_FILLS"] } } };
+    const res = await upsertVortex(set2, []);
+    expect(res.warnings).toContain('"semantic/text/primary": Figma recusou a escrita (nope); ignorado');
+  });
+
+  it("composite with opacity pointing at a COLOR base is skipped with a warning", async () => {
+    const name = Object.keys(seed.semantic).find((n) => Object.values((seed.semantic[n] as any).values).some((v: any) => typeof v === "object"))
+      ?? Object.keys(seed.specific).find((n) => Object.values((seed.specific[n] as any).values).some((v: any) => typeof v === "object"));
+    expect(name).toBeDefined();
+    const layer = name! in seed.semantic ? "semantic" : "specific";
+    const tok: any = (seed as any)[layer][name!];
+    const colorBase = Object.keys(seed.base).find((n) => seed.base[n]!.type === "color")!;
+    const bad: any = {
+      ...seed,
+      [layer]: { ...(seed as any)[layer], [name!]: { ...tok, values: { light: { ...tok.values.light, opacity: colorBase }, dark: tok.values.dark } } },
+    };
+    const res = await upsertVortex(bad, []);
+    expect(res.warnings).toContain(`"${layer}/${name}": referência "${colorBase}" é COLOR (esperado FLOAT); ignorado`);
+    expect(variable(layer, name!)).toBeUndefined();
+  });
+
+  it("reordered scopes count as unchanged", async () => {
+    const set1 = { ...seed, semantic: { ...seed.semantic, "text/primary": { ...seed.semantic["text/primary"]!, scopes: ["ALL_FILLS", "TEXT_FILL"] } } };
+    await upsertVortex(set1 as any, []);
+    const v = variable("semantic", "text/primary");
+    v.scopes = ["TEXT_FILL", "ALL_FILLS"];
+    const res = await upsertVortex(set1 as any, []);
+    expect(res.variables.updated).toBe(0);
+    expect(v.scopes).toEqual(["TEXT_FILL", "ALL_FILLS"]);
+  });
+
   it("existing base collection keeps its mode name", async () => {
     const c = fake.figma.variables.createVariableCollection("base");
     await upsertVortex(seed, []);

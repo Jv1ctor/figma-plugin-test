@@ -132,6 +132,12 @@ function toFigmaValue(ctx: VortexContext, layer: Layer, raw: RawVariable, v: Raw
     const o = baseVar(v.composite.opacity);
     if (!c || !o) return null;
     if (raw.type !== "COLOR") return mismatch(raw.type, "COLOR");
+    const part = (b: Variable, name: string, expected: VariableResolvedDataType) => {
+      if (b.resolvedType === expected) return true;
+      ctx.warnings.push(`${label}: referência "${name}" é ${b.resolvedType} (esperado ${expected}); ignorado`);
+      return false;
+    };
+    if (!part(c, v.composite.color, "COLOR") || !part(o, v.composite.opacity, "FLOAT")) return null;
     return { color: figma.variables.createVariableAlias(c), opacity: figma.variables.createVariableAlias(o) } as unknown as VariableValue;
   }
   const kind = kindType(v);
@@ -195,27 +201,40 @@ export async function upsertVortex(set: TokenSet, remove: string[]): Promise<Vor
       if (!ok) continue;
 
       let variable = existing;
-      if (!variable) {
-        variable = figma.variables.createVariable(raw.name, collections[layer], raw.type);
-        byName[layer].set(raw.name, variable);
-      }
       let changed = false;
-      const line = valueLine(set, layer, raw.name);
-      const description = withValueLine(existing ? variable.description : raw.description, line);
-      if (description !== variable.description) { variable.description = description; changed = true; }
-      const scopes = raw.scopes as VariableScope[];
-      if (scopes.length !== variable.scopes.length || scopes.some((x, i) => x !== variable.scopes[i])) {
-        variable.scopes = scopes;
-        changed = true;
-      }
-      const syntax = `var(${cssVarName(layer, raw.name)})`;
-      if (variable.codeSyntax.WEB !== syntax) { variable.setVariableCodeSyntax("WEB", syntax); changed = true; }
-
-      for (const [modeId, value] of desired) {
-        if (!sameValue(variable.valuesByMode[modeId], value)) {
-          variable.setValueForMode(modeId, value);
+      try {
+        if (!variable) {
+          variable = figma.variables.createVariable(raw.name, collections[layer], raw.type);
+          byName[layer].set(raw.name, variable);
+        }
+        const line = valueLine(set, layer, raw.name);
+        const description = withValueLine(existing ? variable.description : raw.description, line);
+        if (description !== variable.description) { variable.description = description; changed = true; }
+        const scopes = raw.scopes as VariableScope[];
+        const sorted = (xs: readonly string[]) => [...xs].sort();
+        const wanted = sorted(scopes);
+        const have = sorted(variable.scopes);
+        if (wanted.length !== have.length || wanted.some((x, i) => x !== have[i])) {
+          variable.scopes = scopes;
           changed = true;
         }
+        const syntax = `var(${cssVarName(layer, raw.name)})`;
+        if (variable.codeSyntax.WEB !== syntax) { variable.setVariableCodeSyntax("WEB", syntax); changed = true; }
+
+        for (const [modeId, value] of desired) {
+          if (!sameValue(variable.valuesByMode[modeId], value)) {
+            variable.setValueForMode(modeId, value);
+            changed = true;
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        warnings.push(`"${layer}/${raw.name}": Figma recusou a escrita (${msg}); ignorado`);
+        if (!existing && variable) {
+          try { variable.remove(); } catch { /* best effort */ }
+          byName[layer].delete(raw.name);
+        }
+        continue;
       }
       if (!existing) counts.created++;
       else if (changed) counts.updated++;

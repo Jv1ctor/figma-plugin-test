@@ -32,7 +32,7 @@ describe("vortex styles", () => {
     const t = fake.textStyles[0];
     expect(t.name).toBe(seed.textStyles[0]!.name);
     expect(t.boundVariables.fontSize.id).toBe(varId(seed.textStyles[0]!.fontSize));
-    expect(t.fontName).toEqual({ family: "Satoshi Variable", style: "Regular" });
+    expect(t.fontName.family).toBe("Satoshi Variable"); // style follows the bound fontWeight, as in Figma
     const e = fake.effectStyles[0].effects[0];
     expect(e.type).toBe("DROP_SHADOW");
     expect(e.boundVariables.color.id).toBe(varId(seed.shadowStyles[0]!.color));
@@ -73,6 +73,32 @@ describe("vortex styles", () => {
     expect(fake.textStyles.find((s) => s.name === pre.name)!.id).toBe(pre.id);
     expect(pre.description).toBe("minha");
     expect((pre.boundVariables as any).fontSize.id).toBe(varId(seed.textStyles[0]!.fontSize));
+  });
+
+  it("existing text style keeps its fontName; only new styles get one (weight-bound face is not rewritten)", async () => {
+    const first = await upsertVortex(seed, []);
+    expect(first.styles.created).toBe(14);
+    const writesAfterFirst = fake.calls.fontNameWrites;
+    const bold = fake.textStyles.find((s) => s.fontName.style !== "Regular");
+    expect(bold).toBeDefined(); // fontWeight bound to 500/700 reports Medium/Bold
+    const res = await upsertVortex(seed, []);
+    expect(res.styles).toEqual({ created: 0, updated: 0, unchanged: 14 });
+    expect(fake.calls.fontNameWrites).toBe(writesAfterFirst);
+  });
+
+  it("existing effect style keeps its extra layers", async () => {
+    install();
+    const pre = fake.figma.createEffectStyle();
+    pre.name = seed.shadowStyles[0]!.name;
+    const extra = { type: "LAYER_BLUR", radius: 4, visible: true, blurType: "NORMAL" };
+    pre.effects = [
+      { type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 1 }, offset: { x: 0, y: 0 }, radius: 0, spread: 0, visible: true, blendMode: "NORMAL" },
+      extra,
+    ] as any;
+    await upsertVortex(seed, []);
+    expect(pre.effects).toHaveLength(2);
+    expect(pre.effects[0]!.type).toBe("DROP_SHADOW");
+    expect(pre.effects[1]).toEqual(extra);
   });
 
   it("unknown variable warns and skips the style", async () => {
