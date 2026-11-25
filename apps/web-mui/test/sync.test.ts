@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadSeed, removeSpecific, setBaseValue, toDtcg, upsertSpecific } from "@token-bridge/tokens";
+import { loadSeed, removeSpecific, setGroupEnabled, setBaseValue, toDtcg, upsertSpecific } from "@token-bridge/tokens";
 import type { AliasToken, TokenSet } from "@token-bridge/tokens";
 import type { Envelope, ErrorPayload, MessageType, StatusPayload } from "@token-bridge/protocol";
 import type { RelayPort, RelayState } from "../src/sync/relay-client.ts";
@@ -145,6 +145,41 @@ describe("sync", () => {
     expect(syncStore.get().synced).toBe(snap);
   });
 
+  function figmaWithoutData(local: TokenSet): TokenSet {
+    const snap = structuredClone(local);
+    for (const n of Object.keys(snap.base)) if (n.startsWith("data-")) delete snap.base[n];
+    for (const n of Object.keys(snap.semantic)) if (n.startsWith("data/")) delete snap.semantic[n];
+    snap.disabledGroups = [];
+    return snap;
+  }
+  const disabledData = (): TokenSet => {
+    const seed = loadSeed();
+    const r = setGroupEnabled(seed, "data", false, seed);
+    if (!r.ok) throw new Error("x");
+    return r.set;
+  };
+
+  it("opening snapshot ignores differences that are only disabled-group tokens", async () => {
+    const { store, syncStore, actions, relay } = await setup();
+    store.replaceSet(disabledData());
+    relay.handler = () => reply("tokens-snapshot", { tokens: toDtcg(figmaWithoutData(store.get().set)), warnings: [] });
+    actions.startSync(relay);
+    relay.open();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncStore.get()).toMatchObject({ openingSnapshot: "resolved", banner: null });
+  });
+
+  it("importSet keeps local disabled-group tokens the snapshot lacks", async () => {
+    const { store } = await setup();
+    const local = disabledData();
+    store.replaceSet(local);
+    store.importSet(figmaWithoutData(local));
+    const s = store.get().set;
+    expect(Object.keys(s.base).filter((n) => n.startsWith("data-"))).toHaveLength(Object.keys(local.base).filter((n) => n.startsWith("data-")).length);
+    expect(Object.keys(s.semantic).filter((n) => n.startsWith("data/")).length).toBeGreaterThan(0);
+    expect(s.disabledGroups).toEqual(["data"]);
+  });
+
   it("send ack updates synced from ack.tokens and clears sent tombstones", async () => {
     const { store, syncStore, actions, relay } = await setup();
     actions.startSync(relay);
@@ -271,6 +306,48 @@ describe("sync", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe("http://localhost:3055/tokens.json");
     expect(syncStore.get().synced?.base).toEqual(confirmed.base);
+  });
+
+  it("a stale GET /tokens.json reply never overwrites a newer synced", async () => {
+    const { syncStore, actions, relay } = await setup();
+    const older = setBaseValue(loadSeed(), "brand-1/600", "#16a34c");
+    const newer = setBaseValue(loadSeed(), "brand-1/600", "#16a34d");
+    const resolvers: Array<() => void> = [];
+    const docs = [older, newer];
+    const fetchMock = vi.fn(() => {
+      const doc = docs.shift()!;
+      return new Promise((res) => resolvers.push(() => res({ ok: true, json: async () => toDtcg(doc) })));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    actions.startSync(relay);
+    relay.open({ plugin: "disconnected", lastTokens: { at: "t1" } });
+    relay.open({ plugin: "disconnected", lastTokens: { at: "t2" } });
+    relay.open({ plugin: "disconnected", lastTokens: { at: "t3" } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    resolvers[1]!(); // a resposta mais nova chega primeiro
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncStore.get().synced?.base).toEqual(newer.base);
+    resolvers[0]!(); // a velha chega depois
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncStore.get().synced?.base).toEqual(newer.base);
+  });
+
+  it("a GET /tokens.json reply that resolves after a newer ack does not overwrite synced", async () => {
+    const { store, syncStore, actions, relay } = await setup();
+    const stale = setBaseValue(loadSeed(), "brand-1/600", "#16a34c");
+    const acked = setBaseValue(loadSeed(), "brand-1/600", "#16a34e");
+    let finish!: () => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise((res) => { finish = () => res({ ok: true, json: async () => toDtcg(stale) }); })));
+    relay.handler = () => reply("tokens-ack", { tokens: toDtcg(acked), created: 0, updated: 0, removed: 0, warnings: [] });
+    actions.startSync(relay);
+    relay.open({ lastTokens: { at: "t1" } });
+    relay.open({ lastTokens: { at: "t2" } });
+    store.replaceSet(setBaseValue(store.get().set, "brand-1/600", "#16a34e"));
+    await actions.sendToFigma({ remove: [] });
+    expect(syncStore.get().synced?.base).toEqual(acked.base);
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncStore.get().synced?.base).toEqual(acked.base);
   });
 
   it("relayHttpUrl maps ws schemes", async () => {

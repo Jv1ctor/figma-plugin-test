@@ -1,3 +1,4 @@
+import { isDisabled } from "./groups.ts";
 import type { AliasValue, TokenSet } from "./types.ts";
 
 export interface LayerDiff { added: string[]; changed: string[]; removed: string[] }
@@ -19,9 +20,10 @@ function diffMaps(from: Record<string, string>, to: Record<string, string>): Lay
   };
 }
 
-function layerSigs(set: TokenSet, layer: "base" | "semantic" | "specific"): Sig {
+function layerSigs(set: TokenSet, layer: "base" | "semantic" | "specific", skip?: TokenSet): Sig {
   const out: Sig = {};
   for (const t of Object.values(set[layer])) {
+    if (skip && isDisabled(skip, layer, t.name)) continue;
     const value = "value" in t ? String(t.value) : `${aliasKey(t.values.light)}||${aliasKey(t.values.dark)}`;
     out[t.name] = JSON.stringify([t.type, [...t.scopes], value]);
   }
@@ -39,10 +41,16 @@ function styleSigs(set: TokenSet): Sig {
   return out;
 }
 
-export function diffSets(from: TokenSet, to: TokenSet): SetDiff {
-  const base = diffMaps(layerSigs(from, "base"), layerSigs(to, "base"));
-  const semantic = diffMaps(layerSigs(from, "semantic"), layerSigs(to, "semantic"));
-  const specific = diffMaps(layerSigs(from, "specific"), layerSigs(to, "specific"));
+export interface DiffOptions {
+  /** Ignora tokens de grupos desligados neste set (eles nunca vão ao Figma, spec §5.2). */
+  ignoreDisabledOf?: TokenSet;
+}
+
+export function diffSets(from: TokenSet, to: TokenSet, opts: DiffOptions = {}): SetDiff {
+  const k = opts.ignoreDisabledOf;
+  const base = diffMaps(layerSigs(from, "base", k), layerSigs(to, "base", k));
+  const semantic = diffMaps(layerSigs(from, "semantic", k), layerSigs(to, "semantic", k));
+  const specific = diffMaps(layerSigs(from, "specific", k), layerSigs(to, "specific", k));
   const styles = diffMaps(styleSigs(from), styleSigs(to));
   const total = [base, semantic, specific, styles]
     .reduce((n, d) => n + d.added.length + d.changed.length + d.removed.length, 0);

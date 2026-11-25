@@ -75,6 +75,32 @@ describe("sync UI", () => {
     expect((within(dialog).getByRole("button", { name: "Enviar" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("send dialog hides the queued note when the relay itself is down", async () => {
+    const user = userEvent.setup();
+    act(() => syncStore.update({ synced: null, relay: { socket: "closed", status: null } }));
+    render(<Header />);
+    await user.click(screen.getByRole("button", { name: "Enviar para o Figma" }));
+    expect(within(screen.getByRole("dialog")).queryByText("Na fila: será aplicado quando o plugin reconectar")).toBeNull();
+  });
+
+  it("send dialog re-checks tombstones every time it opens", async () => {
+    const user = userEvent.setup();
+    act(() => {
+      store.update((s) => ({ ...s, removedSpecifics: ["btn-a"] }));
+      syncStore.update({ synced: store.get().seed, relay: { socket: "open", status: status() } });
+    });
+    render(<Header />);
+    await user.click(screen.getByRole("button", { name: "Enviar para o Figma" }));
+    let dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: "btn-a" }));
+    expect((within(dialog).getByRole("checkbox", { name: "btn-a" }) as HTMLInputElement).checked).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Enviar para o Figma" }));
+    dialog = screen.getByRole("dialog");
+    expect((within(dialog).getByRole("checkbox", { name: "btn-a" }) as HTMLInputElement).checked).toBe(true);
+  });
+
   it("ack snackbar shows counts and opens warnings dialog", async () => {
     const user = userEvent.setup();
     render(<SyncFeedback />);

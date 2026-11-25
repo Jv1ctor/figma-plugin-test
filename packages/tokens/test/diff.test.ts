@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffSets, loadSeed } from "../src/index.ts";
+import { diffSets, loadSeed, setGroupEnabled } from "../src/index.ts";
 import type { AliasToken, TokenSet } from "../src/index.ts";
 
 const clone = (): TokenSet => structuredClone(loadSeed());
@@ -48,5 +48,16 @@ describe("diffSets", () => {
     to.base["brand-1/500"]!.description = "outra";
     to.disabledGroups = ["brand-2"];
     expect(diffSets(loadSeed(), to).total).toBe(0);
+  });
+
+  it("ignoreDisabledOf skips tokens of disabled groups; default behavior unchanged", () => {
+    const seed = loadSeed();
+    const off = setGroupEnabled(seed, "data", false, seed);
+    if (!off.ok) throw new Error("expected ok");
+    const withoutData = structuredClone(off.set);
+    for (const n of Object.keys(withoutData.base)) if (n.startsWith("data-")) delete withoutData.base[n];
+    for (const n of Object.keys(withoutData.semantic)) if (n.startsWith("data/")) delete withoutData.semantic[n];
+    expect(diffSets(withoutData, off.set).total).toBeGreaterThan(0);
+    expect(diffSets(withoutData, off.set, { ignoreDisabledOf: off.set }).total).toBe(0);
   });
 });

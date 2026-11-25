@@ -15,7 +15,7 @@ export interface PendingImport { set: TokenSet; warnings: string[] }
 
 export function ImportFromFigma({ pending, onClose }: { pending: PendingImport | null; onClose: () => void }) {
   const current = useEditor((s) => s.set);
-  const diff = useMemo(() => (pending ? diffSets(current, pending.set) : null), [current, pending]);
+  const diff = useMemo(() => (pending ? diffSets(current, pending.set, { ignoreDisabledOf: current }) : null), [current, pending]);
   return (
     <Dialog data-editor-portal="" open={pending !== null} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Importar do Figma</DialogTitle>

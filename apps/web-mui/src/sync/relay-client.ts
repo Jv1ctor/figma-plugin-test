@@ -53,7 +53,12 @@ class RelayClient implements RelayPort {
       this.set({ socket: "open" });
     };
     ws.onmessage = (ev) => {
-      const msg = JSON.parse(String(ev.data)) as Envelope;
+      let msg: Envelope;
+      try {
+        msg = JSON.parse(String(ev.data)) as Envelope;
+      } catch {
+        return; // quadro inválido: ignora
+      }
       if (msg.type === "status") this.set({ status: msg.payload as StatusPayload });
       const p = this.pending.get(msg.id);
       if (!p || msg.type === "status") return;

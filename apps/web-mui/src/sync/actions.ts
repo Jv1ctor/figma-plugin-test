@@ -12,6 +12,8 @@ export const AUTO_SEND_DEBOUNCE_MS = 2_000;
 
 let port: RelayPort | null = null;
 let sendSeq = 0;
+/** Incrementa a cada atualização de `synced` (ack ou GET): respostas GET antigas são descartadas. */
+let syncedEpoch = 0;
 
 export function buildPayload(set: TokenSet, remove: string[]): UpsertTokensPayload {
   return { tokens: toDtcg(set), remove: { specific: remove }, muiModule: toMuiModule(set) };
@@ -55,7 +57,10 @@ export async function sendToFigma(opts: { remove: string[]; auto?: boolean }): P
     const ack = res.payload as TokensAckPayload;
     const synced = parseDtcg(ack.tokens);
     store.clearTombstones(opts.remove); // aplicado no Figma, mesmo que um envio mais novo exista
-    if (latest()) syncStore.update({ synced });
+    if (latest()) {
+      syncedEpoch++;
+      syncStore.update({ synced });
+    }
     return finish({ kind: "ack", ack });
   } catch (e) {
     return finish(toError(e));
@@ -105,7 +110,7 @@ export function startSync(relay: RelayPort): () => void {
     }
     fetchSnapshot().then(
       ({ set, warnings }) => {
-        const diff = diffSets(store.get().set, set);
+        const diff = diffSets(store.get().set, set, { ignoreDisabledOf: store.get().set });
         if (diff.total === 0) syncStore.update({ synced: set, openingSnapshot: "resolved" });
         else syncStore.update({ banner: { diff, snapshot: set, warnings } });
       },
@@ -121,9 +126,12 @@ export function startSync(relay: RelayPort): () => void {
     if (at === baselineAt) return;
     baselineAt = at;
     if (at === undefined) return;
+    const epoch = ++syncedEpoch;
     fetch(`${relayHttpUrl(RELAY_URL)}/tokens.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((json: unknown) => syncStore.update({ synced: parseDtcg(json) }))
+      .then((json: unknown) => {
+        if (epoch === syncedEpoch) syncStore.update({ synced: parseDtcg(json) });
+      })
       .catch(() => {});
   };
 

@@ -156,7 +156,25 @@ export const store = {
   },
   /** Substitui o set pelo do Figma, preservando os grupos desligados locais; zera as lápides. */
   importSet(set: TokenSet): void {
-    commit({ ...state, set: { ...set, disabledGroups: state.set.disabledGroups }, removedSpecifics: [] });
+    const local = state.set;
+    const keep = <T extends { name: string }>(layer: "base" | "semantic" | "specific", incoming: Record<string, T>): Record<string, T> => {
+      const out = { ...incoming };
+      for (const [n, t] of Object.entries(local[layer] as Record<string, T>)) {
+        if (!(n in out) && isDisabled(local, layer, n)) out[n] = t; // nunca vão ao Figma: não podem sumir do rascunho
+      }
+      return out;
+    };
+    commit({
+      ...state,
+      set: {
+        ...set,
+        base: keep("base", set.base),
+        semantic: keep("semantic", set.semantic),
+        specific: keep("specific", set.specific),
+        disabledGroups: local.disabledGroups,
+      },
+      removedSpecifics: [],
+    });
     writeRemoved([]);
   },
   clearTombstones(names: string[]): void {

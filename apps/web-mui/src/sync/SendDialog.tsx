@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -25,9 +25,12 @@ export function SendDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const synced = useSync((s) => s.synced);
   const autoSend = useSync((s) => s.autoSend);
   const sending = useSync((s) => s.sending);
-  const offline = useSync((s) => s.relay.status?.plugin !== "connected");
+  const queuedNote = useSync((s) => s.relay.socket === "open" && s.relay.status?.plugin !== "connected");
   const [excluded, setExcluded] = useState<string[]>([]);
-  const diff = useMemo(() => diffSets(synced ?? EMPTY, set), [synced, set]);
+  useEffect(() => {
+    if (open) setExcluded([]); // lápides voltam marcadas a cada abertura
+  }, [open]);
+  const diff = useMemo(() => diffSets(synced ?? EMPTY, set, { ignoreDisabledOf: set }), [synced, set]);
 
   const send = () => {
     const remove = tombstones.filter((n) => !excluded.includes(n));
@@ -65,7 +68,7 @@ export function SendDialog({ open, onClose }: { open: boolean; onClose: () => vo
           label="Envio automático"
           control={<Switch checked={autoSend} onChange={(e) => setAutoSend(e.target.checked)} />}
         />
-        {offline && <Alert severity="warning">Na fila: será aplicado quando o plugin reconectar</Alert>}
+        {queuedNote && <Alert severity="warning">Na fila: será aplicado quando o plugin reconectar</Alert>}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
