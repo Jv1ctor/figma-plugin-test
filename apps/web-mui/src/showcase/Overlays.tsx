@@ -39,72 +39,72 @@ export function Overlays() {
       </div>
 
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--vx-space-medium)" }}>
-        <Spot id="button-contained-primary"><Button variant="contained" onClick={() => setDialog(true)}>Abrir diálogo</Button></Spot>
-        <Spot id="button-outlined"><Button variant="outlined" onClick={(e) => setMenuAnchor(e.currentTarget)}>Abrir menu</Button></Spot>
-        <Spot id="button-outlined"><Button variant="outlined" onClick={(e) => setPopAnchor(e.currentTarget)}>Abrir popover</Button></Spot>
-        <Spot id="button-outlined"><Button variant="outlined" onClick={() => setSnack(true)}>Mostrar snackbar</Button></Spot>
-        <Spot id="button-outlined"><Button variant="outlined" onClick={() => setDrawer(true)}>Abrir gaveta</Button></Spot>
+        <Spot id="dialog">
+          <Button variant="contained" onClick={() => setDialog(true)}>Abrir diálogo</Button>
+          <Dialog open={dialog} onClose={() => setDialog(false)} aria-labelledby="dialogo-titulo">
+            <DialogTitle id="dialogo-titulo">Excluir pedido?</DialogTitle>
+            <DialogContent>
+              <DialogContentText>O pedido #4821 será removido da lista e não poderá ser recuperado.</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialog(false)}>Cancelar</Button>
+              <Button variant="contained" color="error" onClick={() => setDialog(false)}>Excluir</Button>
+            </DialogActions>
+          </Dialog>
+        </Spot>
+
+        <Spot id="menu">
+          <Button variant="outlined" onClick={(e) => setMenuAnchor(e.currentTarget)}>Abrir menu</Button>
+          <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
+            <MenuItem onClick={() => setMenuAnchor(null)}>Editar</MenuItem>
+            <MenuItem onClick={() => setMenuAnchor(null)}>Duplicar</MenuItem>
+            <MenuItem disabled>Arquivar</MenuItem>
+          </Menu>
+        </Spot>
+
+        <Spot id="popover">
+          <Button variant="outlined" onClick={(e) => setPopAnchor(e.currentTarget)}>Abrir popover</Button>
+          <Popover
+            anchorEl={popAnchor}
+            open={popAnchor !== null}
+            onClose={() => setPopAnchor(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+          >
+            <Typography variant="body2" sx={{ p: "var(--vx-space-medium)" }}>Conteúdo do popover</Typography>
+          </Popover>
+        </Spot>
+
+        <Spot id="snackbar">
+          <Button variant="outlined" onClick={() => setSnack(true)}>Mostrar snackbar</Button>
+          <Snackbar
+            open={snack}
+            autoHideDuration={4000}
+            onClose={() => setSnack(false)}
+            message="Alterações salvas"
+            action={<Button size="small" color="inherit" onClick={() => setSnack(false)}>Desfazer</Button>}
+          />
+        </Spot>
+
+        <Spot id="drawer">
+          <Button variant="outlined" onClick={() => setDrawer(true)}>Abrir gaveta</Button>
+          <Drawer anchor="right" open={drawer} onClose={() => setDrawer(false)}>
+            <Box sx={{ width: 280, p: "var(--vx-space-medium)" }}>
+              <Typography variant="h5" component="h3">Navegação</Typography>
+              <List>
+                <ListItemButton><ListItemText primary="Painel" /></ListItemButton>
+                <ListItemButton><ListItemText primary="Pedidos" /></ListItemButton>
+                <ListItemButton disabled><ListItemText primary="Relatórios" /></ListItemButton>
+              </List>
+            </Box>
+          </Drawer>
+        </Spot>
+
         <Spot id="tooltip">
           <Tooltip title="Central de ajuda" arrow>
             <IconButton aria-label="Ajuda"><HelpIcon /></IconButton>
           </Tooltip>
         </Spot>
       </Box>
-
-      <Spot id="dialog">
-        <Dialog open={dialog} onClose={() => setDialog(false)} aria-labelledby="dialogo-titulo">
-          <DialogTitle id="dialogo-titulo">Excluir pedido?</DialogTitle>
-          <DialogContent>
-            <DialogContentText>O pedido #4821 será removido da lista e não poderá ser recuperado.</DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialog(false)}>Cancelar</Button>
-            <Button variant="contained" color="error" onClick={() => setDialog(false)}>Excluir</Button>
-          </DialogActions>
-        </Dialog>
-      </Spot>
-
-      <Spot id="menu">
-        <Menu anchorEl={menuAnchor} open={menuAnchor !== null} onClose={() => setMenuAnchor(null)}>
-          <MenuItem onClick={() => setMenuAnchor(null)}>Editar</MenuItem>
-          <MenuItem onClick={() => setMenuAnchor(null)}>Duplicar</MenuItem>
-          <MenuItem disabled>Arquivar</MenuItem>
-        </Menu>
-      </Spot>
-
-      <Spot id="popover">
-        <Popover
-          anchorEl={popAnchor}
-          open={popAnchor !== null}
-          onClose={() => setPopAnchor(null)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        >
-          <Typography variant="body2" sx={{ p: "var(--vx-space-medium)" }}>Conteúdo do popover</Typography>
-        </Popover>
-      </Spot>
-
-      <Spot id="snackbar">
-        <Snackbar
-          open={snack}
-          autoHideDuration={4000}
-          onClose={() => setSnack(false)}
-          message="Alterações salvas"
-          action={<Button size="small" color="inherit" onClick={() => setSnack(false)}>Desfazer</Button>}
-        />
-      </Spot>
-
-      <Spot id="drawer">
-        <Drawer anchor="right" open={drawer} onClose={() => setDrawer(false)}>
-          <Box sx={{ width: 280, p: "var(--vx-space-medium)" }}>
-            <Typography variant="h5" component="h3">Navegação</Typography>
-            <List>
-              <ListItemButton><ListItemText primary="Painel" /></ListItemButton>
-              <ListItemButton><ListItemText primary="Pedidos" /></ListItemButton>
-              <ListItemButton disabled><ListItemText primary="Relatórios" /></ListItemButton>
-            </List>
-          </Box>
-        </Drawer>
-      </Spot>
     </Box>
   );
 }

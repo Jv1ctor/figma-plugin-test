@@ -103,4 +103,41 @@ describe("telas Configurações e Overlays", () => {
     for (const id of ids) expect(SPOTS, id).toHaveProperty(id);
     for (const [id, tokens] of Object.entries(SPOTS)) for (const t of tokens) expect(seed.semantic, `${id}: ${t}`).toHaveProperty([t]);
   });
+
+  it("SPOTS: fixa as correções da revisão (overrides são a fonte)", () => {
+    const has = (id: keyof typeof SPOTS, ...t: string[]) => { for (const x of t) expect(SPOTS[id], `${id} deve ter ${x}`).toContain(x); };
+    const lacks = (id: keyof typeof SPOTS, ...t: string[]) => { for (const x of t) expect(SPOTS[id], `${id} não deve ter ${x}`).not.toContain(x); };
+    // carregadas da Task 10
+    has("chip-default", "space/small", "space/x-small", "typography/body/font-family");
+    lacks("chip-default", "typography/body/small/font-size");
+    lacks("checkbox", "space/x-small"); has("checkbox", "opacity/disabled", "text/secondary", "typography/body/small/font-size");
+    lacks("radio", "space/x-small"); has("radio", "opacity/disabled", "text/secondary");
+    has("card", "typography/heading/medium/font-size", "typography/heading/large/font-size");
+    has("autocomplete", "typography/label/medium/font-size");
+    lacks("button-text", "border/strong", "border-width/default");
+    has("tabs", "opacity/disabled");
+    // novas
+    has("menu", "typography/label/medium/font-size");
+    for (const id of ["alert-standard", "alert-filled", "alert-outlined"] as const) has(id, "typography/body/small/font-size");
+    lacks("alert-filled", "text/primary");
+    has("breadcrumbs", "typography/body/medium/font-size", "text/primary"); lacks("breadcrumbs", "typography/body/small/font-size");
+    has("accordion", "shadow/raised/blur", "opacity/disabled");
+    has("snackbar", "shadow/raised/blur", "typography/body/small/font-size");
+    has("toggle-button", "opacity/disabled"); has("icon-button", "opacity/disabled");
+    has("pagination", "typography/body/small/font-size"); lacks("pagination", "radius/xx-small", "border-width/default");
+    has("stepper", "typography/body/small/font-size");
+    has("fab", "background/action/primary"); lacks("fab", "background/action/primary-hover", "background/action/primary-pressed", "text/on-action-primary");
+    has("button-group", "background/action/tertiary-hover", "background/action/tertiary-pressed", "space/medium");
+    has("dialog", "text/secondary");
+  });
+
+  it("Overlays: cada Spot tem conteúdo em fluxo (gatilho) e nenhum Spot fica vazio", () => {
+    render(<Wrapped><Overlays /></Wrapped>);
+    const triggers = { dialog: "Abrir diálogo", menu: "Abrir menu", popover: "Abrir popover", snackbar: "Mostrar snackbar", drawer: "Abrir gaveta" };
+    for (const [id, name] of Object.entries(triggers)) {
+      const spot = screen.getByRole("button", { name }).closest("[data-spot]")!;
+      expect(spot.getAttribute("data-spot"), name).toBe(id);
+    }
+    for (const spot of document.querySelectorAll("[data-spot]")) expect(spot.childElementCount, spot.getAttribute("data-spot")!).toBeGreaterThan(0);
+  });
 });

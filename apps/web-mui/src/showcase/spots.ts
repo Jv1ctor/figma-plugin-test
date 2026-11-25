@@ -17,7 +17,7 @@ const FIELD = ["border/strong", "border-width/default", "radius/x-small", "text/
 const SELECTION = ["border/selected", "border/strong", "text/primary", ...text("body", "medium")];
 const SURFACE = ["background/surface", "radius/medium", ...shadow("raised")];
 const RAISED = ["background/surface-raised", "radius/small", ...shadow("raised")];
-const CHIP = ["radius/full", "space/x-small", "typography/body/font-family"]; // o Chip só lê a família do corpo; padding small = x-small
+const CHIP = ["radius/full", "space/small", "space/x-small", "typography/body/font-family"]; // padding: medium = small, small = x-small; só a família do corpo
 const TERTIARY_TEXT = ["text/primary", "icon/primary", "background/action/tertiary-hover", "background/action/tertiary-pressed"];
 const TERTIARY = [...TERTIARY_TEXT, "border/strong", "border-width/default"];
 const action = (kind: "primary" | "secondary" | "danger"): string[] => [
@@ -25,7 +25,7 @@ const action = (kind: "primary" | "secondary" | "danger"): string[] => [
   "radius/x-small", "space/medium", ...LABEL,
 ];
 const STATUS_NAMES = ["danger", "warning", "information", "success"];
-const ALERT_BASE = ["radius/xx-small", "space/medium", "text/primary"];
+const ALERT_BASE = ["radius/xx-small", "space/medium", ...text("body", "small")];
 const strong = (palette: string): string[] => [`background/${palette}/strong`, `text/on-${palette}-strong`];
 
 export const SPOTS = {
@@ -65,30 +65,30 @@ export const SPOTS = {
   "button-outlined": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL],
   "button-text": [...TERTIARY_TEXT, "radius/x-small", "space/x-small", ...LABEL],
   "button-disabled": [...action("primary"), ...TERTIARY, ...DISABLED],
-  "icon-button": ["icon/primary", "background/action/tertiary-hover", "background/action/tertiary-pressed", "radius/full", "space/x-small"],
+  "icon-button": ["icon/primary", "background/action/tertiary-hover", "background/action/tertiary-pressed", "radius/full", "space/x-small", ...DISABLED],
   "link": ["text/link", ...text("body", "small")],
   // Configurações
   "switch": ["border/selected", "border/strong", "background/surface-raised", "radius/full", ...DISABLED],
   "slider": ["border/selected", "border/strong", "radius/full", ...DISABLED],
   "list": ["text/primary", "text/secondary", ...text("body", "medium", "small"), ...DISABLED],
-  "accordion": ["background/surface", "border/subtle", "radius/medium", "space/x-small", "space/medium", "text/primary", ...text("body", "medium")],
+  "accordion": ["background/surface", "border/subtle", "radius/medium", "space/x-small", "space/medium", "text/primary", ...text("body", "medium"), ...shadow("raised"), ...DISABLED],
   "divider": ["border/subtle", "border-width/default"],
-  "alert-standard": [...ALERT_BASE, ...STATUS_NAMES.flatMap((p) => [`background/${p}/subtle`, `icon/${p}`])],
+  "alert-standard": [...ALERT_BASE, "text/primary", ...STATUS_NAMES.flatMap((p) => [`background/${p}/subtle`, `icon/${p}`])],
   "alert-filled": [...ALERT_BASE, ...STATUS_NAMES.flatMap(strong)],
-  "alert-outlined": [...ALERT_BASE, "border-width/default", ...STATUS_NAMES.flatMap((p) => [`border/${p}`, `icon/${p}`])],
-  "breadcrumbs": ["text/link", "text/secondary", ...text("body", "small")],
-  "pagination": ["radius/full", "radius/xx-small", "border-width/default", "border-width/selected", "border/selected", "background/selected", "text/primary", ...DISABLED],
-  "stepper": ["background/selected", "border/selected", "border-width/selected", "border/subtle", "border-width/default", "text/primary"],
-  "toggle-button": ["radius/x-small", "border-width/default", "text/primary"],
-  "button-group": ["radius/x-small", "border/strong", "border-width/default", "text/primary", ...LABEL],
-  "fab": ["radius/full", "background/action/primary", "background/action/primary-hover", "background/action/primary-pressed", "text/on-action-primary"],
+  "alert-outlined": [...ALERT_BASE, "text/primary", "border-width/default", ...STATUS_NAMES.flatMap((p) => [`border/${p}`, `icon/${p}`])],
+  "breadcrumbs": ["text/link", "text/secondary", "text/primary", ...text("body", "medium")],
+  "pagination": ["radius/full", "border-width/selected", "border/selected", "background/selected", "text/primary", ...text("body", "small"), ...DISABLED],
+  "stepper": ["background/selected", "border/selected", "border-width/selected", "border/subtle", "border-width/default", "text/primary", ...text("body", "small")],
+  "toggle-button": ["radius/x-small", "border-width/default", "text/primary", ...DISABLED],
+  "button-group": ["radius/x-small", "border/strong", "border-width/default", "space/medium", ...TERTIARY_TEXT, ...LABEL],
+  "fab": ["radius/full", "background/action/primary"],
   // Overlays
-  "dialog": ["background/surface-raised", "radius/large", "space/x-small", "space/medium", "space/large", "text/primary", ...shadow("overlay"), ...text("heading", "small"), ...text("body", "medium"), "background/backdrop", "opacity/backdrop"],
-  "menu": ["background/surface-raised", "radius/small", "space/x-small", "space/medium", "text/primary", ...shadow("raised"), ...DISABLED],
-  "popover": ["background/surface-raised", "radius/small", ...shadow("raised")],
-  "snackbar": ["background/inverse", "text/on-inverse", "radius/small", "space/medium"],
-  "tooltip": ["background/inverse", "text/on-inverse", "radius/xx-small", "space/xx-small", "space/x-small"],
-  "drawer": ["background/surface-raised", ...shadow("overlay"), "background/backdrop", "opacity/backdrop"],
+  "dialog": [...action("primary"), ...action("danger"), ...TERTIARY_TEXT, "background/surface-raised", "radius/large", "space/x-small", "space/medium", "space/large", "text/primary", "text/secondary", ...shadow("overlay"), ...text("heading", "small"), ...text("body", "medium"), "background/backdrop", "opacity/backdrop"],
+  "menu": [...TERTIARY, "radius/x-small", "space/medium", "background/surface-raised", "radius/small", "space/x-small", "text/primary", ...shadow("raised"), ...LABEL, ...DISABLED],
+  "popover": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL, "background/surface-raised", "radius/small", ...shadow("raised")],
+  "snackbar": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL, "background/inverse", "text/on-inverse", "radius/small", ...shadow("raised"), ...text("body", "small")],
+  "tooltip": ["icon/primary", "background/action/tertiary-hover", "background/action/tertiary-pressed", "radius/full", "space/x-small", "background/inverse", "text/on-inverse", "radius/xx-small", "space/xx-small", "space/x-small"],
+  "drawer": [...TERTIARY, "radius/x-small", "space/medium", ...LABEL, "background/surface-raised", ...shadow("overlay"), "background/backdrop", "opacity/backdrop", "text/primary", ...text("heading", "medium"), ...text("body", "medium"), ...DISABLED],
 } satisfies Record<string, string[]>;
 
 export type SpotId = keyof typeof SPOTS;
