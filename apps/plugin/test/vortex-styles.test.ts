@@ -82,3 +82,73 @@ describe("vortex styles", () => {
     expect(res.styles.created).toBe(0);
   });
 });
+
+describe("vortex styles: failure isolation and reading", () => {
+  it("type-mismatched variable skips one style with an exact warning and no orphan", async () => {
+    await upsertVortex(seed, []);
+    const first = seed.textStyles[0]!;
+    fake.textStyles.splice(0, 1); // pretend the style is new again
+    const v = fake.variables.find((x) => x.name === first.fontSize)!;
+    v.resolvedType = "STRING";
+    const res = await upsertVortex(seed, []);
+    expect(res.warnings).toContain(
+      `Estilo "${first.name}": variável "${first.fontSize}" tem tipo STRING (esperado FLOAT); estilo ignorado`);
+    expect(fake.textStyles).toHaveLength(11);
+    expect(fake.textStyles.some((s) => s.name === first.name)).toBe(false);
+    expect(res.styles).toEqual({ created: 0, updated: 0, unchanged: 13 });
+  });
+
+  it("a style whose Figma write throws is skipped and cleaned up", async () => {
+    install();
+    const orig = fake.figma.createTextStyle;
+    let n = 0;
+    fake.figma.createTextStyle = () => {
+      const st = orig();
+      if (n++ === 0) st.setBoundVariable = () => { throw new Error("boom"); };
+      return st;
+    };
+    const res = await upsertVortex(seed, []);
+    expect(res.warnings).toContain(
+      `Estilo "${seed.textStyles[0]!.name}": Figma recusou a atualização (boom); estilo ignorado`);
+    expect(res.styles.created).toBe(13);
+    expect(fake.textStyles).toHaveLength(11);
+    expect(res.variables.created).toBe(454);
+  });
+
+  it("existing effect style with a blur effect becomes a bound DROP_SHADOW", async () => {
+    install();
+    const pre = fake.figma.createEffectStyle();
+    pre.name = seed.shadowStyles[0]!.name;
+    pre.effects = [{ type: "LAYER_BLUR", radius: 4, visible: true, blurType: "NORMAL" }] as any;
+    const res = await upsertVortex(seed, []);
+    expect(res.warnings).toEqual([]);
+    expect(res.styles.updated).toBe(1);
+    expect(pre.effects[0]!.type).toBe("DROP_SHADOW");
+    expect((pre.effects[0] as any).boundVariables.spread.id).toBe(varId(seed.shadowStyles[0]!.spread));
+  });
+
+  it("untouched local styles are silently ignored when reading", async () => {
+    await upsertVortex(seed, []);
+    const own = fake.figma.createTextStyle();
+    own.name = "mine/body";
+    const { raw, warnings } = await readVortex();
+    expect(warnings).toEqual([]);
+    expect(raw.textStyles.map((s) => s.name)).not.toContain("mine/body");
+    expect(raw.textStyles).toHaveLength(12);
+  });
+
+  it("caps warnings once, with +N last", async () => {
+    await upsertVortex(seed, []);
+    const base = fake.collections.find((c) => c.name === "base");
+    fake.figma.variables.createVariable("flag", base, "BOOLEAN");
+    for (let i = 0; i < 60; i++) {
+      const st = fake.figma.createTextStyle();
+      st.name = `partial/${i}`;
+      st.setBoundVariable("fontSize", fake.variables.find((x) => x.name === seed.textStyles[0]!.fontSize));
+    }
+    const { warnings } = await readVortex();
+    expect(warnings).toHaveLength(51);
+    expect(warnings[50]).toBe("+11 avisos");
+    expect(warnings.filter((w) => /^\+\d+ avisos$/.test(w))).toHaveLength(1);
+  });
+});

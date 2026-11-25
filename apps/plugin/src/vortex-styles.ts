@@ -1,6 +1,6 @@
 /** Text and effect styles bound to Vortex variables (main thread only). Spec §6.4. */
 import type { Layer, RawFigmaExport } from "@token-bridge/tokens/figma";
-import { capWarnings, type Counts, type VortexContext } from "./vortex.ts";
+import { type Counts, type VortexContext } from "./vortex.ts";
 
 const TEXT_FIELDS = ["fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing"] as const;
 /** raw binding key → Figma effect field */
@@ -31,12 +31,23 @@ function familyOf(ctx: VortexContext, name: string): string | undefined {
   return base && typeof base.value === "string" ? base.value : undefined;
 }
 
+/** Variable type each style field accepts (keyed by the raw binding name). */
+const FIELD_TYPE: Record<string, VariableResolvedDataType> = {
+  fontFamily: "STRING", color: "COLOR", fontSize: "FLOAT", fontWeight: "FLOAT", lineHeight: "FLOAT",
+  letterSpacing: "FLOAT", offsetX: "FLOAT", offsetY: "FLOAT", blur: "FLOAT", spread: "FLOAT",
+};
+
 function resolveAll(ctx: VortexContext, label: string, names: Record<string, string>): Record<string, Variable> | null {
   const out: Record<string, Variable> = {};
   for (const [field, name] of Object.entries(names)) {
     const v = resolve(ctx, name);
     if (!v) {
       ctx.warnings.push(`Estilo "${label}": variável "${name}" não existe; estilo ignorado`);
+      return null;
+    }
+    if (v.resolvedType !== FIELD_TYPE[field]) {
+      ctx.warnings.push(
+        `Estilo "${label}": variável "${name}" tem tipo ${v.resolvedType} (esperado ${FIELD_TYPE[field]}); estilo ignorado`);
       return null;
     }
     out[field] = v;
@@ -46,6 +57,15 @@ function resolveAll(ctx: VortexContext, label: string, names: Record<string, str
 
 const boundId = (bv: unknown, field: string): string | undefined =>
   (bv as Record<string, { id?: string } | undefined> | undefined)?.[field]?.id;
+
+function refuse(ctx: VortexContext, name: string, e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  ctx.warnings.push(`Estilo "${name}": Figma recusou a atualização (${msg}); estilo ignorado`);
+}
+
+function safeRemove(style: { remove(): void }) {
+  try { style.remove(); } catch { /* best effort */ }
+}
 
 export async function upsertStyles(ctx: VortexContext, raw: RawFigmaExport): Promise<Counts> {
   const counts: Counts = { created: 0, updated: 0, unchanged: 0 };
@@ -71,24 +91,29 @@ export async function upsertStyles(ctx: VortexContext, raw: RawFigmaExport): Pro
     }
     let style = textByName.get(spec.name);
     const isNew = !style;
-    if (!style) {
-      style = figma.createTextStyle();
-      style.name = spec.name;
-      style.description = spec.description;
-      textByName.set(spec.name, style);
-    }
-    let changed = false;
-    if (style.fontName.family !== fontName.family || style.fontName.style !== fontName.style) {
-      style.fontName = fontName;
-      changed = true;
-    }
-    for (const field of TEXT_FIELDS) {
-      if (boundId(style.boundVariables, field) !== vars[field]!.id) {
-        style.setBoundVariable(field, vars[field]!);
+    try {
+      if (!style) {
+        style = figma.createTextStyle();
+        style.name = spec.name;
+        style.description = spec.description;
+      }
+      let changed = false;
+      if (style.fontName.family !== fontName.family || style.fontName.style !== fontName.style) {
+        style.fontName = fontName;
         changed = true;
       }
+      for (const field of TEXT_FIELDS) {
+        if (boundId(style.boundVariables, field) !== vars[field]!.id) {
+          style.setBoundVariable(field, vars[field]!);
+          changed = true;
+        }
+      }
+      textByName.set(spec.name, style);
+      tally(isNew, changed);
+    } catch (e) {
+      refuse(ctx, spec.name, e);
+      if (isNew && style) safeRemove(style);
     }
-    tally(isNew, changed);
   }
 
   const effectByName = new Map<string, EffectStyle>();
@@ -98,25 +123,32 @@ export async function upsertStyles(ctx: VortexContext, raw: RawFigmaExport): Pro
     if (!vars) continue;
     let style = effectByName.get(spec.name);
     const isNew = !style;
-    if (!style) {
-      style = figma.createEffectStyle();
-      style.name = spec.name;
-      style.description = spec.description;
-      effectByName.set(spec.name, style);
-    }
-    let effect: Effect = style.effects[0] ?? {
-      type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 0.25 }, offset: { x: 0, y: 0 },
-      radius: 0, spread: 0, visible: true, blendMode: "NORMAL",
-    };
-    let changed = style.effects.length === 0;
-    for (const [key, field] of EFFECT_FIELDS) {
-      if (boundId((effect as { boundVariables?: unknown }).boundVariables, field) !== vars[key]!.id) {
-        effect = figma.variables.setBoundVariableForEffect(effect, field, vars[key]!);
-        changed = true;
+    try {
+      if (!style) {
+        style = figma.createEffectStyle();
+        style.name = spec.name;
+        style.description = spec.description;
       }
+      const current = style.effects[0];
+      const usable = current && (current.type === "DROP_SHADOW" || current.type === "INNER_SHADOW");
+      let effect: Effect = usable ? current : {
+        type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 0.25 }, offset: { x: 0, y: 0 },
+        radius: 0, spread: 0, visible: true, blendMode: "NORMAL",
+      };
+      let changed = !usable;
+      for (const [key, field] of EFFECT_FIELDS) {
+        if (boundId((effect as { boundVariables?: unknown }).boundVariables, field) !== vars[key]!.id) {
+          effect = figma.variables.setBoundVariableForEffect(effect, field, vars[key]!);
+          changed = true;
+        }
+      }
+      if (changed) style.effects = [effect];
+      effectByName.set(spec.name, style);
+      tally(isNew, changed);
+    } catch (e) {
+      refuse(ctx, spec.name, e);
+      if (isNew && style) safeRemove(style);
     }
-    if (changed) style.effects = [effect];
-    tally(isNew, changed);
   }
   return counts;
 }
@@ -149,6 +181,7 @@ export async function readStyles(idToName: Map<string, string>): Promise<{
   for (const s of await figma.getLocalTextStylesAsync()) {
     if (seen.has(s.name)) continue;
     seen.add(s.name);
+    if (!TEXT_FIELDS.some((f) => nameOf(s.boundVariables, f))) continue;
     const b = names(s.name, (f) => nameOf(s.boundVariables, f), TEXT_FIELDS);
     if (b) textStyles.push({ name: s.name, description: s.description, bindings: b as RawFigmaExport["textStyles"][number]["bindings"] });
   }
@@ -157,8 +190,9 @@ export async function readStyles(idToName: Map<string, string>): Promise<{
     if (seenE.has(s.name)) continue;
     seenE.add(s.name);
     const bv = (s.effects[0] as { boundVariables?: unknown } | undefined)?.boundVariables;
+    if (!EFFECT_FIELDS.some(([, f]) => nameOf(bv, f))) continue;
     const b = names(s.name, (key) => nameOf(bv, EFFECT_FIELDS.find((e) => e[0] === key)![1]), EFFECT_FIELDS.map((e) => e[0]));
     if (b) effectStyles.push({ name: s.name, description: s.description, bindings: b as RawFigmaExport["effectStyles"][number]["bindings"] });
   }
-  return { textStyles, effectStyles, warnings: capWarnings(warnings) };
+  return { textStyles, effectStyles, warnings };
 }

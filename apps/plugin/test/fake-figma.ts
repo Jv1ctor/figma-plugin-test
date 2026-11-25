@@ -8,6 +8,13 @@ export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string
   const textStyles: any[] = [];
   const effectStyles: any[] = [];
   const loaded = new Set<string>();
+  const FIELD_TYPE: Record<string, string> = {
+    fontFamily: "STRING", color: "COLOR", fontSize: "FLOAT", fontWeight: "FLOAT", lineHeight: "FLOAT",
+    letterSpacing: "FLOAT", offsetX: "FLOAT", offsetY: "FLOAT", radius: "FLOAT", spread: "FLOAT",
+  };
+  const checkType = (field: string, v: any) => {
+    if (FIELD_TYPE[field] !== v.resolvedType) throw new Error("Mismatched variable resolved type");
+  };
   const calls = { createCollection: 0, createVariable: 0, setValueForMode: 0, removeVariable: 0 };
 
   const makeCollection = (name: string) => {
@@ -48,7 +55,8 @@ export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string
           if (!loaded.has(`${f.family}/${f.style}`)) throw new Error("Cannot write to node with unloaded font");
           fontName = { ...f };
         },
-        setBoundVariable(field: string, v: any) { st.boundVariables[field] = { type: "VARIABLE_ALIAS", id: v.id }; },
+        remove() { textStyles.splice(textStyles.indexOf(st), 1); },
+        setBoundVariable(field: string, v: any) { checkType(field, v); st.boundVariables[field] = { type: "VARIABLE_ALIAS", id: v.id }; },
       };
       textStyles.push(st);
       return st;
@@ -59,12 +67,15 @@ export function createFakeFigma(opts: { maxModes?: number; missingFonts?: string
         id: id("S"), name: "", description: "",
         get effects() { return structuredClone(effects); },
         set effects(e: any[]) { effects = structuredClone(e); },
+        remove() { effectStyles.splice(effectStyles.indexOf(st), 1); },
       };
       effectStyles.push(st);
       return st;
     },
     variables: {
       setBoundVariableForEffect(effect: any, field: string, v: any) {
+        checkType(field, v);
+        if (/BLUR/.test(effect.type) && field !== "radius") throw new Error(`field ${field} not valid for ${effect.type}`);
         return { ...structuredClone(effect), boundVariables: { ...(effect.boundVariables ?? {}), [field]: { type: "VARIABLE_ALIAS", id: v.id } } };
       },
       async getLocalVariableCollectionsAsync() { return [...collections]; },
