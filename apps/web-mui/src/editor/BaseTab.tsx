@@ -9,15 +9,14 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
 import { baseGroupOf, setBaseValue, setGroupEnabled } from "@token-bridge/tokens";
 import type { OptionalGroup } from "@token-bridge/tokens";
 import { FONT_CATALOG, ensureFontLoaded } from "../fonts.ts";
 import { store, useEditor } from "../state/store.ts";
 import { PaletteCard } from "./PaletteCard.tsx";
+import { WarningBadge } from "./WarningBadge.tsx";
 
 const BRAND_OPTIONAL: Array<{ palette: string; group: OptionalGroup }> = [
   { palette: "brand-2", group: "brand-2" },
@@ -47,11 +46,7 @@ function FontSelect({ token, label }: { token: "font-family/primary" | "font-fam
         {!FONT_CATALOG.some((f) => f.family === value) && <MenuItem value={value}>{value}</MenuItem>}
         {FONT_CATALOG.map((f) => <MenuItem key={f.family} value={f.family}>{f.family}</MenuItem>)}
       </TextField>
-      {warnings.length > 0 && (
-        <Tooltip title={<Box>{warnings.map((w) => <div key={w.id}>{w.message}</div>)}</Box>}>
-          <WarningAmberIcon fontSize="small" color="warning" aria-label={`${warnings.length} aviso em ${label}`} />
-        </Tooltip>
-      )}
+      <WarningBadge warnings={warnings} label={label} />
     </Box>
   );
 }

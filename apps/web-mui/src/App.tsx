@@ -7,6 +7,9 @@ import { ThemeProvider, useColorScheme } from "@mui/material/styles";
 import { MODE_ATTR, cssVarMap, muiPaletteValues } from "@token-bridge/tokens";
 import type { Mode, TokenSet } from "@token-bridge/tokens";
 import { BaseTab } from "./editor/BaseTab.tsx";
+import { SemanticTab } from "./editor/SemanticTab.tsx";
+import { SpecificTab } from "./editor/SpecificTab.tsx";
+import { WarningsDrawer } from "./editor/WarningsDrawer.tsx";
 import { ensureFontLoaded } from "./fonts.ts";
 import { RuntimeSheet } from "./runtime/sheet.ts";
 import { Dashboard } from "./showcase/Dashboard.tsx";
@@ -79,8 +82,11 @@ export function App() {
       <CssBaseline />
       <ModeSync mode={mode} />
       <Header />
+      <WarningsDrawer />
       <Box component="section" aria-label="Editor" sx={{ borderBottom: "var(--vx-border-width-default) solid var(--vx-border-subtle)" }}>
         {tab === "base" && <BaseTab />}
+        {tab === "semantic" && <SemanticTab />}
+        {tab === "specific" && <SpecificTab />}
       </Box>
       <Box
         component="main"

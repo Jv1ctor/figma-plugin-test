@@ -6,10 +6,10 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import WarningAmberIcon from "@mui/icons-material/WarningAmberRounded";
 import { EditError, InvalidColorError, SCALE_STEPS, applyScale, setBaseValue } from "@token-bridge/tokens";
 import type { OptionalGroup, TokenSet } from "@token-bridge/tokens";
 import { store, useEditor } from "../state/store.ts";
+import { WarningBadge } from "./WarningBadge.tsx";
 
 const HEX_ERROR = "Hex inválido. Use o formato #rrggbb.";
 const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v);
@@ -99,13 +99,7 @@ export function PaletteCard({ palette, group, disabled = false, onToggle }: Pale
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: "var(--vx-space-small)" }}>
         <Typography variant="subtitle2" sx={{ flex: 1 }}>{palette}</Typography>
-        {mine.length > 0 && (
-          <Tooltip title={<Box>{mine.map((w) => <div key={w.id}>{w.message}</div>)}</Box>}>
-            <Box component="span" role="img" aria-label={`${mine.length} aviso${mine.length > 1 ? "s" : ""} em ${palette}`} sx={{ display: "inline-flex" }}>
-              <WarningAmberIcon fontSize="small" color="warning" />
-            </Box>
-          </Tooltip>
-        )}
+        <WarningBadge warnings={mine} label={palette} />
         {group && (
           <Switch
             size="small"
